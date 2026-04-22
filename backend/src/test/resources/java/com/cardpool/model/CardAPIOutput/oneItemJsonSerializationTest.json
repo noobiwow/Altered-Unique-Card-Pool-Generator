@@ -1,0 +1,62 @@
+{
+  "member": [
+    {
+      "reference": "ALT_CORE_B_OR_17_C",
+      "kickstarter": false,
+      "promo": false,
+      "transfuge": false,
+      "variation": "standard",
+      "set": {
+        "name": "Beyond the Gates",
+        "code": "BTG",
+        "reference": "CORE"
+      },
+      "artists": [
+        {
+          "name": "Jean-Baptiste Andrier"
+        }
+      ],
+      "imagePath": {
+        "de": "https://altered-prod-eu.s3.amazonaws.com/Art/CORE/CARDS/ALT_CORE_B_OR_17/JPG/de_DE/227fc014a0ca3362f8fb49eef7c083c9.jpg",
+        "it": "https://altered-prod-eu.s3.amazonaws.com/Art/CORE/CARDS/ALT_CORE_B_OR_17/JPG/it_IT/0ffbc39da8adf78b537beee8eb30b5aa.jpg",
+        "en": "https://altered-prod-eu.s3.amazonaws.com/Art/CORE/CARDS/ALT_CORE_B_OR_17/JPG/en_US/4231f9dcd4d6049164a23fd1403eb41c.jpg",
+        "fr": "https://altered-prod-eu.s3.amazonaws.com/Art/CORE/CARDS/ALT_CORE_B_OR_17/JPG/fr_FR/0432d3a7180e47da97060c696760d91d.jpg",
+        "es": "https://altered-prod-eu.s3.amazonaws.com/Art/CORE/CARDS/ALT_CORE_B_OR_17/JPG/es_ES/41b4475bb66b05e3a15e29ed5df63583.jpg"
+      },
+      "faction": {
+        "id": 5,
+        "name": "Ordis",
+        "code": "OR",
+        "position": 5
+      },
+      "rarity": {
+        "id": 3,
+        "reference": "COMMON"
+      },
+      "mainCost": 4,
+      "recallCost": 4,
+      "oceanPower": 2,
+      "mountainPower": 2,
+      "forestPower": 2,
+      "name": {
+        "de": "Jeanne d'Arc",
+        "en": "Jeanne d'Arc",
+        "es": "Jeanne d'Arc",
+        "fr": "Jeanne d'Arc",
+        "it": "Giovanna d'Arco"
+      },
+      "mainEffect": {
+        "de": "Wenn ich die Expeditionszone verlasse — Erschaffe eine [Ordis-Rekrut 1/1/1]-Soldatenmarke in jeder deiner Expeditionen.",
+        "en": "Quando lascio l'area delle spedizioni — Crea una pedina Soldato [Ordis Recruit 1/1/1] in ciascuna delle tue spedizioni.",
+        "es": "Cuando abandone la zona de expedición — Crea una ficha de soldado [Recluta de Ordis 1/1/1] en cada una de tus expediciones.",
+        "fr": "Lorsque je quitte la zone d'Expédition — Créez un jeton Soldat [1/1/1 Recrue Ordis] dans chacune de vos Expéditions.",
+        "it": "Quando lascio l'area delle spedizioni — Crea una pedina Soldato [Recluta Ordis 1/1/1] in ciascuna delle tue spedizioni."
+      },
+      "echoEffect": []
+    }
+  ],
+  "totalItems": 1,
+  "currentPage": 1,
+  "itemsPerPage": 30,
+  "lastPage": 1
+}
