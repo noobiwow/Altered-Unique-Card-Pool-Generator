@@ -175,6 +175,7 @@ const onExportCsv = () => {
   axios
         .post(
       'http://localhost:8080/api/pool/export',
+      generatedPool.value,
       { responseType: 'blob' }
     )
     .then((response) => {

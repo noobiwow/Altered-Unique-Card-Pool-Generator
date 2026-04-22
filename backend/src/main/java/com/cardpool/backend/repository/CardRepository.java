@@ -9,8 +9,6 @@ import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
-import org.springframework.beans.factory.annotation.Value;
-
 import com.cardpool.backend.model.Card;
 import com.cardpool.backend.model.CardFilter;
 import com.cardpool.backend.model.externalApi.APICard;
@@ -22,10 +20,7 @@ import reactor.core.publisher.Mono;
 
 public class CardRepository {
 
-    @Value("${external.api.base-url}")
-    private String apiBaseUrl;
-
-    private ExternalAPIService externalAPIService = new ExternalAPIService(apiBaseUrl);
+    private ExternalAPIService externalAPIService = new ExternalAPIService();
     private List<Card> cards = Collections.emptyList();
     private FilterIndex index = null;
 

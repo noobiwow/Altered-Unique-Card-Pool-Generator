@@ -2,7 +2,6 @@ package com.cardpool.backend.service;
 
 import java.time.Duration;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -17,11 +16,11 @@ import reactor.util.retry.Retry;
 public class ExternalAPIService {
     private final WebClient webClient;
     private static final String API_MIME_TYPE = "application/json";
+    private static final String BASE_URL = "https://cards.alteredcore.org/api/";
 
-    public ExternalAPIService(
-            @Value("${external.api.base-url}") String apiBaseUrl) {
+    public ExternalAPIService() {
         this.webClient = WebClient.builder()
-                .baseUrl(apiBaseUrl)
+                .baseUrl(BASE_URL)
                 .codecs(configurer -> configurer
                         .defaultCodecs()
                         .maxInMemorySize(16 * 1024 * 1024))
@@ -61,8 +60,6 @@ public class ExternalAPIService {
                 .uri(uriBuilder -> uriBuilder
                         .path("/cards")
                         .queryParam("page", page)
-                        .queryParam("rarity[]", "UNIQUE")
-                        .queryParam("itemsPerPage", 1000)
                         .build())
                 .retrieve()
                 .bodyToMono(CardAPIOutput.class)
