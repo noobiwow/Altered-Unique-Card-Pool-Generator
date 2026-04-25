@@ -82,17 +82,24 @@ label {
 }
 
 input[type='text'],
-input[type='number'] {
+input[type='number'],
+select {
   width: 100%;
   padding: 0.5rem;
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 1rem;
   box-sizing: border-box;
+  background-color: white;
+}
+
+select option {
+  padding: 0.25rem;
 }
 
 input[type='text']:focus,
-input[type='number']:focus {
+input[type='number']:focus,
+select:focus {
   outline: none;
   border-color: #007bff;
 }
