@@ -11,12 +11,20 @@
       <form v-if="!loading && !poolGenerated" @submit.prevent="onGenerate">
         <div class="form-group">
           <label for="faction">Faction</label>
-          <input id="faction" type="text" v-model="form.faction" />
+            <select v-model="form.faction">
+              <option v-for="faction in factions" :value="faction.code">
+                {{ faction.name }}
+              </option>
+            </select>
         </div>
 
         <div class="form-group">
           <label for="set">Set</label>
-          <input id="set" type="text" v-model="form.set" />
+          <select v-model="form.set">
+            <option v-for="set in sets" :value="set.reference">
+              {{ set.name }}
+            </option>
+          </select>
         </div>
 
         <div class="form-group">
@@ -61,10 +69,8 @@
           <input id="numberOfCards" type="number" v-model="form.numberOfCards" />
         </div>
 
-        <label for="dropdown">Choose an option:</label>
-        <!-- 3. v-model binds the selection, v-for generates options -->
-        <select v-model="form.selectedLocale" id="dropdown">
-          <option disabled value="">Please select one</option>
+        <label for="language">Language:</label>
+        <select v-model="form.selectedLocale" id="language">
           <option v-for="locale in listOfLocale" :key="locale" :value="locale">
             {{ locale }}
           </option>
@@ -107,7 +113,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import axios from 'axios'
 import Visualizer from './components/Visualizer.vue'
 import Analytics from './components/Analytics.vue'
@@ -123,6 +129,27 @@ const showVisualizer = ref(false)
 const showAnalytics = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
 const listOfLocale = ['de','en','es','fr','it']
+interface Faction {
+  code: string;
+  name: string;
+}
+const factions = ref<Faction[]>([]);
+interface Set {
+  reference: string;
+  name: string;
+}
+const sets = ref<Set[]>([]);
+interface MetaResponse {
+  factions: Faction[];
+  sets: Set[];
+}
+
+onMounted(async () => {
+  const res = await fetch("http://localhost:8080/api/form/formValues");
+  const data: MetaResponse = await res.json();
+  factions.value = data.factions;
+  sets.value = data.sets;
+});
 
 const form = reactive({
   faction: '',
@@ -155,7 +182,7 @@ const onGenerate = () => {
   poolGenerated.value = false
   const locale = form.selectedLocale || "en"
   const size = form.numberOfCards || 10
-
+  console.log(form);
   axios
     .post<any[]>(`http://localhost:8080/api/pool/generate?size=${size}&locale=${locale}`, form)
     .then((response) => {
@@ -211,211 +238,3 @@ const onAnalyzeCsv = () => {
     })
 }
 </script>
-
-<style scoped>
-:host {
-  display: block;
-  height: 100dvh;
-  font-family:
-    'Inter',
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    Roboto,
-    Helvetica,
-    Arial,
-    sans-serif;
-  box-sizing: border-box;
-}
-
-.main {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  padding: 1rem;
-  background-color: #f5f5f5;
-}
-
-.form-container {
-  background: white;
-  padding: 2rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  width: 100%;
-  max-width: 400px;
-}
-
-h1 {
-  text-align: center;
-  margin-bottom: 1.5rem;
-  font-size: 1.5rem;
-  color: #333;
-}
-
-.form-group {
-  margin-bottom: 1rem;
-}
-
-.form-row {
-  display: flex;
-  gap: 1rem;
-}
-
-.form-row .form-group {
-  flex: 1;
-}
-
-label {
-  display: block;
-  margin-bottom: 0.25rem;
-  font-size: 0.875rem;
-  color: #555;
-}
-
-input[type='text'],
-input[type='number'] {
-  width: 100%;
-  padding: 0.5rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 1rem;
-  box-sizing: border-box;
-}
-
-input[type='text']:focus,
-input[type='number']:focus {
-  outline: none;
-  border-color: #007bff;
-}
-
-.checkbox-group {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.checkbox-group input[type='checkbox'] {
-  width: auto;
-  margin: 0;
-}
-
-.checkbox-group label {
-  margin-bottom: 0;
-  cursor: pointer;
-}
-
-.button-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-top: 1.5rem;
-}
-
-button {
-  padding: 0.75rem 1rem;
-  border: none;
-  border-radius: 4px;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.btn-generate {
-  background-color: #007bff;
-  color: white;
-}
-
-.btn-generate:hover {
-  background-color: #0056b3;
-}
-
-.btn-import {
-  background-color: #6c757d;
-  color: white;
-}
-
-.btn-import:hover {
-  background-color: #545b62;
-}
-
-.loading {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem;
-  gap: 1rem;
-}
-
-.loading p {
-  font-size: 1.125rem;
-  color: #007bff;
-  margin: 0;
-}
-
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid #e0e0e0;
-  border-top-color: #007bff;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.post-generate-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-top: 1.5rem;
-}
-
-.btn-export {
-  background-color: #28a745;
-  color: white;
-}
-
-.btn-export:hover {
-  background-color: #1e7e34;
-}
-
-.btn-visualize {
-  background-color: #17a2b8;
-  color: white;
-}
-
-.btn-visualize:hover {
-  background-color: #138496;
-}
-
-.fullscreen-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: white;
-  z-index: 1000;
-  overflow: auto;
-  padding: 2rem;
-}
-
-.btn-close {
-  position: fixed;
-  top: 1rem;
-  right: 1rem;
-  background: #dc3545;
-  color: white;
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  z-index: 1001;
-}
-</style>

@@ -39,7 +39,7 @@ public class CardRepository {
     }
 
     public Mono<List<Card>> drawFiltered(CardFilter filter, int count, String locale) {
-        return externalAPIService.streamAllCards()
+        return externalAPIService.streamAllCards(filter)
                 .map(apiCard -> toCard(apiCard, locale)) // AlteredCard → votre Card
                 // Filtre en streaming — pas de collectList() ici
                 .filter(card -> matchesFilter(card, filter))
@@ -50,7 +50,7 @@ public class CardRepository {
 
     // Variante : findAll seul sans tirage (compatible streaming) // A garder ?
     public Flux<Card> findAllV2(CardFilter filter, String locale) {
-        return externalAPIService.streamAllCards()
+        return externalAPIService.streamAllCards(filter)
                 .map(apiCard -> toCard(apiCard, locale))
                 .filter(card -> matchesFilter(card, filter));
         // Pas de collectList() ici — le caller décide ce qu'il fait du Flux

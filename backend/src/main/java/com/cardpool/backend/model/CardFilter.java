@@ -40,11 +40,11 @@ public class CardFilter {
 
     private boolean test(Card c) {
         Criteria cr = criteria;
-        if (cr.faction() != null && !cr.faction().equalsIgnoreCase(c.getFactionName()))
+        if (cr.faction() != null && !cr.faction().equalsIgnoreCase(c.getMainFaction().getCode()))
             return false;
         if (cr.rarity() != null && !cr.rarity().equalsIgnoreCase(c.getRarityName()))
             return false;
-        if (cr.set() != null && !cr.set().equalsIgnoreCase(c.getSetCode()))
+        if (cr.set() != null && !cr.set().equalsIgnoreCase(c.getCardSet().getReference()))
             return false;
         if (cr.subType() != null && !c.hasSubType(cr.subType()))
             return false;

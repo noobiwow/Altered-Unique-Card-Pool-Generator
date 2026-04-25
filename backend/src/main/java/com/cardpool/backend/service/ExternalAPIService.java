@@ -1,11 +1,15 @@
 package com.cardpool.backend.service;
 
+import java.net.URI;
 import java.time.Duration;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.util.UriBuilder;
 
+import com.cardpool.backend.model.CardFilter;
+import com.cardpool.backend.model.CardFilter.Criteria;
 import com.cardpool.backend.model.externalApi.APICard;
 import com.cardpool.backend.model.externalApi.CardAPIOutput;
 
@@ -16,7 +20,7 @@ import reactor.util.retry.Retry;
 public class ExternalAPIService {
     private final WebClient webClient;
     private static final String API_MIME_TYPE = "application/json";
-    private static final String BASE_URL = "https://cards.alteredcore.org/api/";
+    private static final String BASE_URL = "https://cards.alteredcore.org/api";
 
     public ExternalAPIService() {
         this.webClient = WebClient.builder()
@@ -28,13 +32,27 @@ public class ExternalAPIService {
                 .build();
     }
 
-    public Flux<APICard> streamAllCards() {
+    public URI buildURI(CardFilter cardFilter, UriBuilder uriBuilder, int page) {
+        Criteria criteria = cardFilter.getCriteria();
+        uriBuilder.path("/cards");
+        uriBuilder.queryParam("rarity[]", "UNIQUE");
+        uriBuilder.queryParam("itemsPerPage", 1000);
+        if (page > 1) {
+            uriBuilder.queryParam("page", page);
+        }
+        if (criteria.set() != null) {
+            uriBuilder.queryParam("set.reference", cardFilter.getCriteria().set());
+        }
+        if (criteria.faction() != null) {
+            uriBuilder.queryParam("faction.code[]", cardFilter.getCriteria().faction());
+        }
+        System.out.println(uriBuilder.toUriString());
+        return uriBuilder.build();
+    }
+
+    public Flux<APICard> streamAllCards(CardFilter cardFilter) {
         return webClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/cards")
-                        .queryParam("rarity[]", "UNIQUE")
-                        .queryParam("itemsPerPage", 1000)
-                        .build())
+                .uri(uriBuilder -> buildURI(cardFilter, uriBuilder, 1))
                 .retrieve()
                 .bodyToMono(CardAPIOutput.class)
                 .flatMapMany(firstPage -> {
@@ -42,7 +60,7 @@ public class ExternalAPIService {
                     Flux<APICard> firstPageFlux = Flux.fromIterable(firstPage.getMember());
                     Flux<APICard> remainingPagesFlux = Flux
                             .range(2, totalPages - 1)
-                            .flatMap(page -> fetchPage(page)
+                            .flatMap(page -> fetchPage(page, cardFilter)
                                     .retryWhen(
                                             Retry.backoff(3, Duration.ofSeconds(1)))
                                     .onErrorResume(e -> {
@@ -55,12 +73,9 @@ public class ExternalAPIService {
                 });
     }
 
-    private Flux<APICard> fetchPage(int page) {
+    private Flux<APICard> fetchPage(int page, CardFilter cardFilter) {
         return webClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/cards")
-                        .queryParam("page", page)
-                        .build())
+                .uri(uriBuilder -> buildURI(cardFilter, uriBuilder, page))
                 .retrieve()
                 .bodyToMono(CardAPIOutput.class)
 
