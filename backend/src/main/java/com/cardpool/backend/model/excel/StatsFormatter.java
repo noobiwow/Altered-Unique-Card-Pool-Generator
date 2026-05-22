@@ -4,7 +4,13 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+
 public class StatsFormatter {
+
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     public String formatText(EffectInventory inventory) {
         StringBuilder sb = new StringBuilder();
@@ -92,72 +98,45 @@ public class StatsFormatter {
     }
 
     public String formatJson(EffectInventory inventory) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("{\n");
-        sb.append(String.format("  \"totalEffects\": %d,%n", inventory.totalEffects()));
-        sb.append(String.format("  \"sets\": %d,%n", inventory.countBySet().size()));
-        sb.append(String.format(" \"uniqueStructures\": %d,%n", inventory.countByEffectStructure().size()));
-        sb.append("  \"effectStructureBySet\": ").append(jsonNestedMap(inventory.countByEffectStructureBySet()))
-                .append(",\n");
-        sb.append("  \"effectBodyBySet\": ").append(jsonNestedMap(inventory.countByEffectBodyBySet()))
-                .append(",\n");
-        sb.append("  \"triggerBySet\": ").append(jsonNestedMap(inventory.countByTriggerBySet()))
-                .append(",\n");
-        sb.append("  \"conditionBySet\": ").append(jsonNestedMap(inventory.countByConditionBySet()))
-                .append(",\n");
-        sb.append("  \"countByType\": ").append(jsonMap(inventory.countByType())).append(",\n");
-        sb.append("  \"countByTrigger\": ").append(jsonMap(inventory.countByTrigger())).append(",\n");
-        sb.append("  \"countByCondition\": ").append(jsonMap(inventory.countByCondition())).append(",\n");
-        sb.append("  \"countByEffectStructure\": ").append(jsonMap(inventory.countByEffectStructure())).append(",\n");
-        sb.append("  \"effectStructureByType\": ").append(jsonNestedMap(inventory.countByEffectStructureByType()))
-                .append(",\n");
-        sb.append("  \"effectEntries\": ").append(jsonEffectEntries(inventory.getEntries()))
-                .append(",\n");
-        sb.append("  \"effectEntriesBySet\": ").append(jsonEffectEntriesBySet(inventory))
-                .append("\n");
-        sb.append("}");
-        return sb.toString();
+        ObjectNode root = MAPPER.createObjectNode();
+        root.put("totalEffects", inventory.totalEffects());
+        root.put("sets", inventory.countBySet().size());
+        root.put("uniqueStructures", inventory.countByEffectStructure().size());
+        root.set("effectStructureBySet", toNestedJsonNode(inventory.countByEffectStructureBySet()));
+        root.set("effectBodyBySet", toNestedJsonNode(inventory.countByEffectBodyBySet()));
+        root.set("triggerBySet", toNestedJsonNode(inventory.countByTriggerBySet()));
+        root.set("conditionBySet", toNestedJsonNode(inventory.countByConditionBySet()));
+        root.set("countByType", toJsonNode(inventory.countByType()));
+        root.set("countByTrigger", toJsonNode(inventory.countByTrigger()));
+        root.set("countByCondition", toJsonNode(inventory.countByCondition()));
+        root.set("countByEffectStructure", toJsonNode(inventory.countByEffectStructure()));
+        root.set("effectStructureByType", toNestedJsonNode(inventory.countByEffectStructureByType()));
+        root.set("effectEntries", toJsonArray(inventory.getEntries()));
+        root.set("effectEntriesBySet", toJsonEntriesBySet(inventory));
+        return root.toPrettyString();
     }
 
-    private String jsonEffectEntriesBySet(EffectInventory inventory) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("{\n");
-        var setGroups = inventory.getEntries().stream()
+    private ObjectNode toJsonEntriesBySet(EffectInventory inventory) {
+        ObjectNode root = MAPPER.createObjectNode();
+        inventory.getEntries().stream()
                 .collect(java.util.stream.Collectors.groupingBy(EffectEntry::getSet))
                 .entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
-                .toList();
-        for (int i = 0; i < setGroups.size(); i++) {
-            var setEntry = setGroups.get(i);
-            sb.append(String.format("    \"%s\": ", escape(setEntry.getKey())));
-            sb.append("[\n");
-            var entries = setEntry.getValue();
-            for (int j = 0; j < entries.size(); j++) {
-                sb.append("      ").append(entries.get(j).getEffectStructureJson());
-                if (j < entries.size() - 1)
-                    sb.append(",");
-                sb.append("\n");
-            }
-            sb.append("    ]");
-            if (i < setGroups.size() - 1)
-                sb.append(",");
-            sb.append("\n");
-        }
-        sb.append("  }");
-        return sb.toString();
+                .forEach(setEntry -> {
+                    ArrayNode arr = root.putArray(setEntry.getKey());
+                    setEntry.getValue().stream()
+                            .map(EffectEntry::getEffectStructureJson)
+                            .forEach(arr::add);
+                });
+        return root;
     }
 
-    private String jsonEffectEntries(List<EffectEntry> entries) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("[\n");
-        for (int i = 0; i < entries.size(); i++) {
-            sb.append("    ").append(entries.get(i).getEffectStructureJson());
-            if (i < entries.size() - 1)
-                sb.append(",");
-            sb.append("\n");
-        }
-        sb.append("  ]");
-        return sb.toString();
+    private ArrayNode toJsonArray(List<EffectEntry> entries) {
+        ArrayNode arr = MAPPER.createArrayNode();
+        entries.stream()
+                .map(EffectEntry::getEffectStructureJson)
+                .forEach(arr::add);
+        return arr;
     }
 
     public String formatEntriesBySet(EffectInventory inventory) {
@@ -212,51 +191,25 @@ public class StatsFormatter {
         };
     }
 
-    private String jsonMap(Map<String, Long> map) {
-        if (map.isEmpty())
-            return "{}";
-        StringBuilder sb = new StringBuilder("{\n");
-        var entries = map.entrySet().stream().sorted(byValueDesc()).toList();
-        for (int i = 0; i < entries.size(); i++) {
-            var e = entries.get(i);
-            sb.append(String.format("    \"%s\": %d", escape(e.getKey()), e.getValue()));
-            if (i < entries.size() - 1)
-                sb.append(",");
-            sb.append("\n");
-        }
-        sb.append("  }");
-        return sb.toString();
+    private ObjectNode toJsonNode(Map<String, Long> map) {
+        ObjectNode node = MAPPER.createObjectNode();
+        map.entrySet().stream()
+                .sorted(byValueDesc())
+                .forEach(e -> node.put(e.getKey(), e.getValue()));
+        return node;
     }
 
-    private String jsonNestedMap(Map<String, Map<String, Long>> outer) {
-        if (outer.isEmpty())
-            return "{}";
-        StringBuilder sb = new StringBuilder("{\n");
-        var sets = outer.entrySet().stream().toList();
-        for (int i = 0; i < sets.size(); i++) {
-            var entry = sets.get(i);
-            sb.append(String.format("    \"%s\": ", escape(entry.getKey())));
-            Map<String, Long> inner = entry.getValue();
-            if (inner.isEmpty()) {
-                sb.append("{}");
-            } else {
-                sb.append("{\n");
-                var innerEntries = inner.entrySet().stream().sorted(byValueDesc()).toList();
-                for (int j = 0; j < innerEntries.size(); j++) {
-                    var ie = innerEntries.get(j);
-                    sb.append(String.format("      \"%s\": %d", escape(ie.getKey()), ie.getValue()));
-                    if (j < innerEntries.size() - 1)
-                        sb.append(",");
-                    sb.append("\n");
-                }
-                sb.append("    }");
-            }
-            if (i < sets.size() - 1)
-                sb.append(",");
-            sb.append("\n");
-        }
-        sb.append("  }");
-        return sb.toString();
+    private ObjectNode toNestedJsonNode(Map<String, Map<String, Long>> outer) {
+        ObjectNode root = MAPPER.createObjectNode();
+        outer.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(entry -> {
+                    ObjectNode inner = root.putObject(entry.getKey());
+                    entry.getValue().entrySet().stream()
+                            .sorted(byValueDesc())
+                            .forEach(ie -> inner.put(ie.getKey(), ie.getValue()));
+                });
+        return root;
     }
 
     private String truncate(String s, int maxLen) {
@@ -267,9 +220,4 @@ public class StatsFormatter {
         return s.substring(0, maxLen - 3) + "...";
     }
 
-    private String escape(String s) {
-        if (s == null)
-            return "";
-        return s.replace("\\", "\\\\").replace("\"", "\\\"");
-    }
 }

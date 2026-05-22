@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.cardpool.backend.model.Card;
+
+import lombok.extern.slf4j.Slf4j;
 import com.cardpool.backend.model.CardFilter;
 import com.cardpool.backend.model.excel.CardEffectAnalyser;
 import com.cardpool.backend.model.excel.StatsFormatter;
@@ -23,26 +25,33 @@ import com.cardpool.backend.service.ExcelCardReaderService;
 import com.cardpool.backend.service.ExcelExportService;
 import com.cardpool.backend.service.PoolService;
 
+import reactor.core.publisher.Mono;
+
+@Slf4j
 @RestController
 @RequestMapping("/api/pool")
 public class CardsController {
 
-    private PoolService poolService;
-    private ExcelCardReaderService excelCardReaderService;
-    private CardRepository repo;
+    private final PoolService poolService;
+    private final ExcelCardReaderService excelCardReaderService;
+    private final CardRepository repo;
 
-    public CardsController() {
-        this.poolService = new PoolService();
-        this.repo = new CardRepository();
-        this.excelCardReaderService = new ExcelCardReaderService();
+    public CardsController(PoolService poolService, ExcelCardReaderService excelCardReaderService, CardRepository repo) {
+        this.poolService = poolService;
+        this.excelCardReaderService = excelCardReaderService;
+        this.repo = repo;
     }
 
     @PostMapping("/generate")
-    public List<Card> generatePoolV2(@RequestParam("size") String poolSize, @RequestParam("locale") String locale,
-            @RequestBody FilterForm filterForm)
-            throws IOException {
+    public Mono<List<Card>> generatePoolV2(
+            @RequestParam("size") String poolSize,
+            @RequestParam("locale") String locale,
+            @RequestBody FilterForm filterForm) {
         CardFilter cardFilter = poolService.buildFilter(filterForm);
-        return repo.drawFiltered(cardFilter, Integer.parseInt(poolSize), locale).block();
+        return repo.drawFilteredV3(
+                cardFilter,
+                Integer.parseInt(poolSize),
+                locale);
     }
 
     @PostMapping("/export")
@@ -61,7 +70,7 @@ public class CardsController {
             String statsJson = formatter.formatJson(new CardEffectAnalyser().analyse(cards));
             return ResponseEntity.ok(statsJson);
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Failed to process stats from Excel file", e);
             return ResponseEntity.status(500).body("{\"error\": \"" + e.getMessage().replace("\"", "'") + "\"}");
         }
     }

@@ -1,143 +1,103 @@
 package com.cardpool.backend.repository;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
-import java.util.Set;
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
 
 import com.cardpool.backend.model.Card;
 import com.cardpool.backend.model.CardFilter;
-import com.cardpool.backend.model.externalApi.APICard;
-import com.cardpool.backend.model.index.FilterIndex;
-import com.cardpool.backend.service.ExternalAPIService;
+import com.cardpool.backend.model.ReservoirSampler;
+import com.cardpool.backend.service.CardCacheService;
 
-import reactor.core.publisher.Flux;
+import org.springframework.stereotype.Repository;
+
 import reactor.core.publisher.Mono;
 
+@Repository
 public class CardRepository {
 
-    private ExternalAPIService externalAPIService = new ExternalAPIService();
-    private List<Card> cards = Collections.emptyList();
-    private FilterIndex index = null;
+    private CardCacheService cacheService = new CardCacheService();
 
-    // -------------------------------------------------------------------------
-    // Query API
-    // -------------------------------------------------------------------------
+    private Map<String, Integer> computeQuotas(
+            Map<String, Double> weights,
+            int totalCount) {
+        Map<String, Integer> quotas = new LinkedHashMap<>();
+        Map<String, Double> remainders = new LinkedHashMap<>();
+        int allocated = 0;
 
-    /** All cards matching the filter, using the index. */
-    public List<Card> findAll(CardFilter filter) {
-        return index != null ? index.query(filter) : filter.apply(cards);
-    }
-
-    /** All cards (no filter). */
-    public List<Card> getAll() {
-        return Collections.unmodifiableList(cards);
-    }
-
-    public Mono<List<Card>> drawFiltered(CardFilter filter, int count, String locale) {
-        return externalAPIService.streamAllCards(filter)
-                .map(apiCard -> toCard(apiCard, locale)) // AlteredCard → votre Card
-                // Filtre en streaming — pas de collectList() ici
-                .filter(card -> matchesFilter(card, filter))
-                // collectList() justifié : Fisher-Yates a besoin du pool complet
-                .collectList()
-                .map(pool -> drawRandom(pool, count));
-    }
-
-    // Variante : findAll seul sans tirage (compatible streaming) // A garder ?
-    public Flux<Card> findAllV2(CardFilter filter, String locale) {
-        return externalAPIService.streamAllCards(filter)
-                .map(apiCard -> toCard(apiCard, locale))
-                .filter(card -> matchesFilter(card, filter));
-        // Pas de collectList() ici — le caller décide ce qu'il fait du Flux
-    }
-
-    private boolean matchesFilter(Card card, CardFilter filter) {
-        // Délègue à votre logique existante
-        // Si CardFilter.apply() accepte un seul élément, adaptez-le
-        // Sinon extrayez les prédicats de CardFilter
-        return filter.apply(List.of(card)).contains(card);
-    }
-
-    private List<Card> drawRandom(List<Card> pool, int count) {
-        if (pool.isEmpty())
-            return Collections.emptyList();
-        int n = Math.min(count, pool.size());
-
-        // Partial Fisher-Yates on an index array — avoids copying the full pool
-        int[] idx = new int[pool.size()];
-        for (int i = 0; i < idx.length; i++)
-            idx[i] = i;
-
-        Random rng = ThreadLocalRandom.current();
-        for (int i = 0; i < n; i++) {
-            int j = i + rng.nextInt(idx.length - i);
-            int tmp = idx[i];
-            idx[i] = idx[j];
-            idx[j] = tmp;
+        for (Map.Entry<String, Double> entry : weights.entrySet()) {
+            double exact = entry.getValue() * totalCount;
+            int floor = (int) Math.floor(exact);
+            quotas.put(entry.getKey(), floor);
+            remainders.put(entry.getKey(), exact - floor);
+            allocated += floor;
         }
 
-        List<Card> result = new ArrayList<>(n);
-        for (int i = 0; i < n; i++)
-            result.add(pool.get(idx[i]));
-        return result;
+        int delta = totalCount - allocated;
+        if (delta > 0) {
+            remainders.entrySet().stream()
+                    .sorted(Map.Entry.<String, Double>comparingByValue().reversed())
+                    .limit(delta)
+                    .forEach(e -> quotas.merge(e.getKey(), 1, Integer::sum));
+        }
+        return quotas;
     }
 
-    // -------------------------------------------------------------------------
-    // Distinct values (from index)
-    // -------------------------------------------------------------------------
+    public Mono<List<Card>> drawFilteredV3(CardFilter filter, int count, String locale) {
 
-    public Set<String> distinctFactions() {
-        return index != null ? index.distinctFactions() : Set.of();
+        CardFilter.Criteria criteria = filter.getCriteria();
+        Map<String, Double> weights = criteria.setWeights();
+        /*
+         * No gauge system:
+         * fallback to global reservoir sampling
+         */
+        if (weights == null || weights.isEmpty()) {
+            return cacheService.getAllUniqueCards()
+                    .filter(card -> filter.test(card))
+                    .collect(() -> new ReservoirSampler<Card>(count), ReservoirSampler::add)
+                    .map(ReservoirSampler::getItems)
+                    .doOnNext(Collections::shuffle);
+        }
+        /*
+         * Compute quotas per set
+         */
+        Map<String, Integer> quotas = computeQuotas(weights, count);
+        /*
+         * One sampler per set
+         */
+        Map<String, ReservoirSampler<Card>> samplers = new HashMap<>();
+        quotas.forEach((setCode, quota) -> {
+            samplers.put(setCode, new ReservoirSampler<>(quota));
+        });
+        return cacheService.getAllUniqueCards()
+                .filter(card -> filter.test(card))
+                .doOnNext(card -> {
+                    if (card.getCardSet() == null) {
+                        return;
+                    }
+                    String setCode = card.getCardSet().getCode();
+                    if (setCode == null) {
+                        return;
+                    }
+                    ReservoirSampler<Card> sampler = samplers.get(setCode);
+                    if (sampler != null) {
+                        sampler.add(card);
+                    }
+                })
+                /*
+                 * Final assembly
+                 */
+                .then(Mono.fromSupplier(() -> {
+                    List<Card> result = samplers.values()
+                            .stream()
+                            .flatMap(s -> s.getItems().stream())
+                            .collect(Collectors.toList());
+                    Collections.shuffle(result);
+                    return result;
+                }));
     }
 
-    public Set<String> distinctRarities() {
-        return index != null ? index.distinctRarities() : Set.of();
-    }
-
-    public Set<String> distinctSets() {
-        return index != null ? index.distinctSets() : Set.of();
-    }
-
-    public Set<String> distinctSubTypes() {
-        return index != null ? index.distinctSubTypes() : Set.of();
-    }
-
-    public Set<String> distinctCardTypes() {
-        return index != null ? index.distinctCardTypes() : Set.of();
-    }
-
-    // -------------------------------------------------------------------------
-    // Mapper
-    // -------------------------------------------------------------------------
-
-    private Card toCard(APICard apiCard, String locale) {
-        Card card = new Card();
-        card.setId(apiCard.getId());
-        card.setReference(apiCard.getReference());
-        card.setName(apiCard.getName().get(locale));
-        card.setCardType(apiCard.getCardType());
-        card.setCardSet(apiCard.getSet());
-        card.setCardSubTypes(apiCard.getCardSubTypes());
-        card.setMainFaction(apiCard.getFaction());
-        card.setRarity(apiCard.getRarity());
-        Map<String, String> elements = new HashMap<>();
-        elements.put("MAIN_COST", String.valueOf(apiCard.getMainCost()));
-        elements.put("RECALL_COST", String.valueOf(apiCard.getRecallCost()));
-        elements.put("oceanPower", String.valueOf(apiCard.getOceanPower()));
-        elements.put("forestPower", String.valueOf(apiCard.getForestPower()));
-        elements.put("mountainPower", String.valueOf(apiCard.getMountainPower()));
-        card.setElements(elements);
-        card.setMainEffect(apiCard.getMainEffect().get(locale));
-        card.setEchoEffect(apiCard.getEchoEffect().get(locale));
-        card.setImagePath(apiCard.getImagePath().get(locale));
-        card.setBanned(apiCard.isBanned());
-        card.setSuspended(apiCard.isSuspended());
-        card.setExclusive(apiCard.isExclusive());
-        return card;
-    }
 }

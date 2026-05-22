@@ -233,3 +233,53 @@ button {
   cursor: pointer;
   z-index: 1001;
 }
+
+.weight-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.weight-label {
+  width: 90px;
+  font-size: 0.8rem;
+  margin-bottom: 0;
+  flex-shrink: 0;
+}
+
+.weight-slider {
+  flex: 1;
+  accent-color: #007bff;
+}
+
+.weight-pct-input {
+  width: 3.5rem;
+  text-align: right;
+  font-size: 0.8rem;
+  padding: 0.2rem 0.4rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  outline: none;
+}
+
+.weight-pct-input:focus {
+  border-color: #007bff;
+}
+
+.weight-pct-suffix {
+  font-size: 0.8rem;
+  color: #555;
+}
+
+.weight-error {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: #dc3545;
+  font-weight: 600;
+}
+
+.btn-generate:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

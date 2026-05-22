@@ -3,6 +3,7 @@ package com.cardpool.backend.model;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Predicate;
 
 /**
@@ -26,6 +27,7 @@ public class CardFilter {
                 builder.maxCost,
                 builder.excludeBanned,
                 builder.excludeSuspended,
+                builder.setWeights,
                 Collections.unmodifiableList(new ArrayList<>(builder.customs)));
     }
 
@@ -38,7 +40,7 @@ public class CardFilter {
         return cards.stream().filter(this::test).toList();
     }
 
-    private boolean test(Card c) {
+    public boolean test(Card c) {
         Criteria cr = criteria;
         if (cr.faction() != null && !cr.faction().equalsIgnoreCase(c.getMainFaction().getCode()))
             return false;
@@ -82,6 +84,7 @@ public class CardFilter {
             Integer maxCost,
             boolean excludeBanned,
             boolean excludeSuspended,
+            Map<String, Double> setWeights,
             List<Predicate<Card>> customPredicates) {
     }
 
@@ -93,6 +96,7 @@ public class CardFilter {
         private String faction, rarity, set, subType, cardType;
         private Integer minCost, maxCost;
         private boolean excludeBanned, excludeSuspended;
+        private Map<String, Double> setWeights;
         private final List<Predicate<Card>> customs = new ArrayList<>();
 
         public Builder faction(String v) {
@@ -148,6 +152,11 @@ public class CardFilter {
 
         public Builder excludeSuspended() {
             excludeSuspended = true;
+            return this;
+        }
+
+        public Builder setWeights(Map<String, Double> v) {
+            setWeights = v;
             return this;
         }
 

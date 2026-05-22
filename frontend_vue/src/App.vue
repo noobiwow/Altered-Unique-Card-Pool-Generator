@@ -29,13 +29,17 @@
 
         <div class="form-group">
           <label for="subType">Sub Type</label>
-          <input id="subType" type="text" v-model="form.subType" />
+          <select v-model="form.subType">
+            <option v-for="subtype in subtypes" :value="subtype.name">
+              {{ subtype.name }}
+            </option>
+          </select>
         </div>
 
-        <div class="form-group">
+        <!-- <div class="form-group">
           <label for="type">Type</label>
           <input id="type" type="text" v-model="form.type" />
-        </div>
+        </div> -->
 
         <div class="form-group checkbox-group">
           <input id="checkExcludeBanned" type="checkbox" v-model="form.checkExcludeBanned" />
@@ -75,9 +79,37 @@
             {{ locale }}
           </option>
         </select>
+        
+        <div class="form-group">
+          <label>Set Weights</label>
+          <div v-for="set in sets" :key="set.reference" class="weight-row">
+            <label :for="'weight-' + set.reference" class="weight-label">{{ set.name }}</label>
+            <input
+              :id="'weight-' + set.reference"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              v-model.number="form.setWeights[set.reference]"
+              class="weight-slider"
+            />
+            <input
+              type="number"
+              min="0"
+              max="100"
+              step="1"
+              :value="Math.round(form.setWeights[set.reference] * 100)"
+              @input="form.setWeights[set.reference] = ($event.target as HTMLInputElement).valueAsNumber / 100 || 0"
+              class="weight-pct-input"
+            /><span class="weight-pct-suffix">%</span>
+          </div>
+          <div v-if="weightTotal !== 1" class="weight-error">
+            Total: {{ (weightTotal * 100).toFixed(0) }}% — must equal 100%
+          </div>
+        </div>
 
         <div class="button-group">
-          <button type="submit" class="btn-generate">Generate</button>
+          <button type="submit" class="btn-generate" :disabled="weightTotal !== 1">Generate</button>
         </div>
       </form>
 
@@ -113,7 +145,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import axios from 'axios'
 import Visualizer from './components/Visualizer.vue'
 import Analytics from './components/Analytics.vue'
@@ -139,16 +171,35 @@ interface Set {
   name: string;
 }
 const sets = ref<Set[]>([]);
+interface Subtype {
+  name: string;
+}
+const subtypes = ref<Subtype[]>([]);
 interface MetaResponse {
   factions: Faction[];
   sets: Set[];
+  subtypes: Subtype[];
 }
+
 
 onMounted(async () => {
   const res = await fetch("http://localhost:8080/api/form/formValues");
   const data: MetaResponse = await res.json();
   factions.value = data.factions;
   sets.value = data.sets;
+  subtypes.value = data.subtypes;
+  const defaultWeights: Record<string, number> = {
+    COREKS: 0.05,
+    CORE: 0.05,
+    ALIZE: 0.1,
+    BISE: 0.1,
+    CYCLONE: 0.20,
+    DUSTER: 0.25,
+    EOLE: 0.25,
+  };
+  data.sets.forEach(s => {
+    form.setWeights[s.reference] = defaultWeights[s.reference] ?? 0.1;
+  });
 });
 
 const form = reactive({
@@ -163,7 +214,12 @@ const form = reactive({
   fieldSearch: '',
   numberOfCards: 10,
   selectedLocale: '',
+  setWeights: {} as Record<string, number>,
 })
+
+const weightTotal = computed(() =>
+  Object.values(form.setWeights).reduce((sum, v) => sum + v, 0)
+) 
 
 const triggerFileInput = () => {
   fileInput.value?.click()

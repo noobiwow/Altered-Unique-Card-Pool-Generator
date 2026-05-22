@@ -1,5 +1,7 @@
 package com.cardpool.backend.model.form;
 
+import java.util.Map;
+
 import lombok.Getter;
 
 @Getter
@@ -14,4 +16,5 @@ public class FilterForm {
     private Integer maxCost;
     private String fieldSearch;
     private String numberOfCards;
+    private Map<String, Double> setWeights;
 }

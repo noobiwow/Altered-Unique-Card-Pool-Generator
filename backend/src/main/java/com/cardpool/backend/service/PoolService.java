@@ -27,6 +27,8 @@ public class PoolService {
             builder.minMainCost(filterForm.getMinCost());
         if (filterForm.getMaxCost() != null)
             builder.maxMainCost(filterForm.getMaxCost());
+        if (filterForm.getSetWeights() != null)
+            builder.setWeights(filterForm.getSetWeights());
 
         if (filterForm.getFieldSearch() != null) {
             String search = filterForm.getFieldSearch().trim().toLowerCase();
