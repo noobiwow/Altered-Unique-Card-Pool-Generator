@@ -1,0 +1,26 @@
+{
+  "effectPatterns": [
+    {
+      "pattern": "two cards of your deck in your Mana zone"
+    }
+  ],
+  "cardNames": [
+    {
+      "name": "Moonlight Jellyfish"
+    },
+    {
+      "name": "Foundry Armorer",
+      "faction": "BR"
+    }
+  ],
+  "effectLines": [
+    {
+      "line": "You may target a Character with Hand Cost {3} or less other than me, it gains [[Anchored]]",
+      "ignoreEcho": true
+    },
+    {
+      "line": "You may return a card other than me from your Reserve to your hand.",
+      "ignoreEcho": true
+    }
+  ]
+}

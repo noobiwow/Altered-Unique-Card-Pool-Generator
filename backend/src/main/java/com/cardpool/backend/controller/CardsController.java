@@ -6,6 +6,7 @@ import java.util.List;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -13,6 +14,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.cardpool.backend.dto.CardWarning;
+import com.cardpool.backend.dto.WarningRule;
 import com.cardpool.backend.model.Card;
 
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +24,7 @@ import com.cardpool.backend.model.excel.CardEffectAnalyser;
 import com.cardpool.backend.model.excel.StatsFormatter;
 import com.cardpool.backend.model.form.FilterForm;
 import com.cardpool.backend.repository.CardRepository;
+import com.cardpool.backend.service.EffectWarningService;
 import com.cardpool.backend.service.ExcelCardReaderService;
 import com.cardpool.backend.service.ExcelExportService;
 import com.cardpool.backend.service.PoolService;
@@ -35,11 +39,14 @@ public class CardsController {
     private final PoolService poolService;
     private final ExcelCardReaderService excelCardReaderService;
     private final CardRepository repo;
+    private final EffectWarningService effectWarningService;
 
-    public CardsController(PoolService poolService, ExcelCardReaderService excelCardReaderService, CardRepository repo) {
+    public CardsController(PoolService poolService, ExcelCardReaderService excelCardReaderService, CardRepository repo,
+            EffectWarningService effectWarningService) {
         this.poolService = poolService;
         this.excelCardReaderService = excelCardReaderService;
         this.repo = repo;
+        this.effectWarningService = effectWarningService;
     }
 
     @PostMapping("/generate")
@@ -60,6 +67,16 @@ public class CardsController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=cards.xlsx")
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .body(ExcelExportService.exportCards(pool));
+    }
+
+    @PostMapping("/analyze")
+    public List<CardWarning> analyzePool(@RequestBody List<Card> pool) {
+        return effectWarningService.analyze(pool);
+    }
+
+    @GetMapping("/warningRules")
+    public List<WarningRule> getWarningRules() {
+        return effectWarningService.getRules();
     }
 
     @PostMapping("/import/stats")

@@ -98,7 +98,7 @@ export default {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
-  padding: 16px;
+  padding: 3rem 16px 16px;
   box-sizing: border-box;
 }
 
@@ -120,12 +120,13 @@ export default {
 }
 
 button:disabled {
-  opacity: 0.5;
+  opacity: 0.3;
   cursor: not-allowed;
 }
 
 .page-info {
-  font-weight: bold;
+  font-weight: 600;
+  color: #cccccc;
 }
 </style>
 
