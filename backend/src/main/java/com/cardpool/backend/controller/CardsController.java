@@ -40,13 +40,16 @@ public class CardsController {
     private final ExcelCardReaderService excelCardReaderService;
     private final CardRepository repo;
     private final EffectWarningService effectWarningService;
+    private final com.cardpool.backend.service.CardCacheService cardCacheService;
 
     public CardsController(PoolService poolService, ExcelCardReaderService excelCardReaderService, CardRepository repo,
-            EffectWarningService effectWarningService) {
+            EffectWarningService effectWarningService,
+            com.cardpool.backend.service.CardCacheService cardCacheService) {
         this.poolService = poolService;
         this.excelCardReaderService = excelCardReaderService;
         this.repo = repo;
         this.effectWarningService = effectWarningService;
+        this.cardCacheService = cardCacheService;
     }
 
     @PostMapping("/generate")
@@ -72,6 +75,11 @@ public class CardsController {
     @PostMapping("/analyze")
     public List<CardWarning> analyzePool(@RequestBody List<Card> pool) {
         return effectWarningService.analyze(pool);
+    }
+
+    @PostMapping("/resolve")
+    public List<Card> resolveRefs(@RequestBody List<String> references) {
+        return cardCacheService.findByReferences(references);
     }
 
     @GetMapping("/warningRules")

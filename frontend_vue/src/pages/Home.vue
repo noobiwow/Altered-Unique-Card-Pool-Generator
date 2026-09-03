@@ -46,7 +46,7 @@
             type="button"
             class="pool-option"
             :disabled="loadingPool || !selectedPrevious"
-            @click="loadPool(getPreviousPool(selectedPrevious)!)"
+            @click="loadPreviousPool(getPreviousPool(selectedPrevious)!)"
           >
             Visualize
           </button>
@@ -70,6 +70,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import Visualizer from '../components/Visualizer.vue'
+import { setRefsPool } from '../pool-store'
 
 interface PoolEntry {
   key: string
@@ -128,6 +129,21 @@ const getPreviousPool = (key: string): PoolEntry | undefined =>
   previousPools.value.find((p) => p.key === key)
 
 const loadPool = async (pool: PoolEntry) => {
+  loadingPool.value = true
+  try {
+    const res = await fetch(`/pools/${pool.path}`)
+    const data = await res.json()
+    const refs: string[] = data.included_refs ?? []
+    setRefsPool(refs)
+    router.push({ name: 'pool' })
+  } catch (err) {
+    console.error('Error loading pool:', err)
+  } finally {
+    loadingPool.value = false
+  }
+}
+
+const loadPreviousPool = async (pool: PoolEntry) => {
   loadingPool.value = true
   try {
     const res = await fetch(`/pools/${pool.path}`)

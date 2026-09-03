@@ -73,6 +73,7 @@
 import { ref, computed, watch } from 'vue'
 import axios from 'axios'
 import { AlteredCard } from 'altered-tcg'
+import { API_BASE } from '../api'
 
 interface PoolCard {
   reference: string
@@ -160,7 +161,7 @@ const paginatedCards = computed(() => {
 
 const fetchRules = async () => {
   try {
-    const res = await axios.get<WarningRule[]>('http://localhost:8080/api/pool/warningRules')
+    const res = await axios.get<WarningRule[]>(`${API_BASE}/api/pool/warningRules`)
     rules.value = res.data
   } catch (err) {
     console.error('Error fetching warning rules:', err)
@@ -172,7 +173,7 @@ const analyze = async () => {
   loading.value = true
   try {
     const res = await axios.post<CardWarning[]>(
-      'http://localhost:8080/api/pool/analyze',
+      `${API_BASE}/api/pool/analyze`,
       props.pool
     )
     const map: Record<string, EffectWarning[]> = {}

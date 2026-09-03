@@ -1,0 +1,8 @@
+services:
+  app:
+    build: .
+    platform: linux/amd64
+    ports:
+      - "80:80"
+    volumes:
+      - ./backend/cache:/app/cache

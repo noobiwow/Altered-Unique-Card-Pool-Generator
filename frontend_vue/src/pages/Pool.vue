@@ -3,7 +3,7 @@
     <div class="form-container">
       <div v-if="!poolLoaded" class="loading">
         <div class="spinner"></div>
-        <p>Loading pool...</p>
+        <p>{{ resolving ? 'Resolving pool...' : 'Loading pool...' }}</p>
       </div>
 
       <template v-else>
@@ -49,20 +49,41 @@ import { useRouter } from 'vue-router'
 import axios from 'axios'
 import Visualizer from '../components/Visualizer.vue'
 import Analytics from '../components/Analytics.vue'
-import { getPool, clearPool } from '../pool-store'
+import { getPool, getRefsPool, clearPool } from '../pool-store'
+import { API_BASE } from '../api'
 
 const router = useRouter()
 const POOL_STORAGE_KEY = 'cardpool_generated_pool'
 const generatedPool = ref<any[]>([])
 const generatedRefs = ref<string[]>([])
 const poolLoaded = ref(false)
+const resolving = ref(false)
 const analyzing = ref(false)
 const file = ref<File | null>(null)
 const showVisualizer = ref(false)
 const showAnalytics = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
 
-onMounted(() => {
+onMounted(async () => {
+  const refsOnly = getRefsPool()
+
+  if (refsOnly) {
+    resolving.value = true
+    try {
+      const res = await axios.post<any[]>(`${API_BASE}/api/pool/resolve`, refsOnly)
+      generatedPool.value = res.data
+      generatedRefs.value = res.data.map((card: any) => card.reference)
+      poolLoaded.value = true
+    } catch (err) {
+      console.error('Error resolving pool refs:', err)
+      router.replace({ name: 'generator' })
+    } finally {
+      resolving.value = false
+      clearPool()
+    }
+    return
+  }
+
   let data: any[] | null = getPool()
 
   if (!data) {
@@ -99,7 +120,7 @@ const onFileSelected = (event: Event) => {
 const onExportCsv = () => {
   axios
     .post(
-      'http://localhost:8080/api/pool/export',
+      `${API_BASE}/api/pool/export`,
       generatedPool.value,
       { responseType: 'blob' }
     )
@@ -141,7 +162,7 @@ const onAnalyzeCsv = () => {
   formData.append('file', file.value)
 
   axios
-    .post<string>('http://localhost:8080/api/pool/import/stats', formData)
+    .post<string>(`${API_BASE}/api/pool/import/stats`, formData)
     .then((response) => {
       console.log('Analysis result:', response.data)
       analyzing.value = false

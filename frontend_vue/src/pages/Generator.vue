@@ -116,6 +116,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
 import { setPool } from '../pool-store'
+import { API_BASE } from '../api'
 
 const router = useRouter()
 const POOL_STORAGE_KEY = 'cardpool_generated_pool'
@@ -144,7 +145,7 @@ interface MetaResponse {
 }
 
 onMounted(async () => {
-  const res = await fetch("http://localhost:8080/api/form/formValues");
+  const res = await fetch(`${API_BASE}/api/form/formValues`);
   const data: MetaResponse = await res.json();
   factions.value = data.factions;
   sets.value = data.sets;
@@ -188,7 +189,7 @@ const onGenerate = () => {
   const size = form.numberOfCards || 10
   const payload = JSON.parse(JSON.stringify(form))
   axios
-    .post<any[]>(`http://localhost:8080/api/pool/generate?size=${size}&locale=${locale}`, payload)
+    .post<any[]>(`${API_BASE}/api/pool/generate?size=${size}&locale=${locale}`, payload)
     .then((response) => {
       const data = response.data
       setPool(data)

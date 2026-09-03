@@ -39,6 +39,14 @@ public class CardCacheService {
         return loadUniqueFromDisk();
     }
 
+    public List<Card> findByReferences(List<String> references) {
+        java.util.Set<String> refSet = new java.util.HashSet<>(references);
+        return loadUniqueFromDisk()
+                .filter(card -> card.getReference() != null && refSet.contains(card.getReference()))
+                .collectList()
+                .block();
+    }
+
     private Flux<Card> loadUniqueFromDisk() {
         return Flux.using(
                 () -> Files.newDirectoryStream(

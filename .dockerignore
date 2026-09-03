@@ -1,0 +1,10 @@
+**/node_modules
+**/target
+**/.git
+**/.idea
+**/.vscode
+**/dist
+**/.DS_Store
+**/*.md
+frontend_vue/node_modules
+backend/target
