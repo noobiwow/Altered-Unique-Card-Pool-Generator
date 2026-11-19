@@ -5,10 +5,10 @@
         <h2>Pool Analysis</h2>
         <p v-if="!loading && pool.length" :class="{ 'has-warnings': totalWarnings > 0 }">
           <template v-if="totalWarnings > 0">
-            {{ totalWarnings }} warning{{ totalWarnings > 1 ? 's' : '' }} on
+            Global: {{ totalWarnings }} warning{{ totalWarnings > 1 ? 's' : '' }} on
             {{ warnedCount }} card{{ warnedCount > 1 ? 's' : '' }}
           </template>
-          <template v-else>No warnings detected</template>
+          <template v-else>Global: no warnings detected</template>
         </p>
       </div>
       <label class="filter-toggle">
@@ -35,37 +35,67 @@
       </div>
 
       <div v-else class="analytics-body">
-        <div v-if="!visibleCards.length" class="empty">
+        <div v-if="!factionGroups.length" class="empty">
           No cards to display.
         </div>
 
-        <div v-else class="analytics-grid">
-        <div
-          v-for="card in paginatedCards"
-          :key="card.reference"
-          class="card-cell"
+        <section
+          v-for="group in factionGroups"
+          :key="group.code"
+          class="faction-section"
         >
-          <div v-if="cardWarnings(card.reference).length" class="warn-reasons">
-            <ul>
-              <li v-for="(warning, i) in cardWarnings(card.reference)" :key="i">{{ warning.detail }}</li>
-            </ul>
-          </div>
-          <div class="card-frame">
-            <AlteredCard :card-ref="card.reference" />
-          </div>
-          <p class="card-name">{{ card.name || card.reference }}</p>
-          <button type="button" class="btn-replace" disabled title="Card replacement coming soon">
-            Replace
-          </button>
-        </div>
-      </div>
+          <header class="faction-header">
+            <h3>{{ group.name }}</h3>
+            <span class="faction-count">
+              {{ group.cards.length }} shown
+            </span>
+            <span v-if="groupWarningCount(group)" class="faction-warnings">
+              {{ groupWarningCount(group) }} warning{{ groupWarningCount(group) > 1 ? 's' : '' }}
+            </span>
+          </header>
 
-      <div v-if="totalPages > 1" class="pagination">
-        <button type="button" :disabled="currentPage === 1" @click="currentPage--">Prev</button>
-        <span class="page-info">Page {{ currentPage }} / {{ totalPages }}</span>
-        <button type="button" :disabled="currentPage === totalPages" @click="currentPage++">Next</button>
+          <div class="analytics-grid">
+            <div
+              v-for="card in paginatedCards(group)"
+              :key="card.reference"
+              class="card-cell"
+            >
+              <div v-if="cardWarnings(card.reference).length" class="warn-reasons">
+                <ul>
+                  <li v-for="(warning, i) in cardWarnings(card.reference)" :key="i">{{ warning.detail }}</li>
+                </ul>
+              </div>
+              <div class="card-frame">
+                <AlteredCard :card-ref="card.reference" />
+              </div>
+              <p class="card-name">{{ card.name || card.reference }}</p>
+              <button type="button" class="btn-replace" disabled title="Card replacement coming soon">
+                Replace
+              </button>
+            </div>
+          </div>
+
+          <div v-if="totalPages(group) > 1" class="pagination">
+            <button
+              type="button"
+              :disabled="pageFor(group.code) === 1"
+              @click="setPage(group.code, pageFor(group.code) - 1)"
+            >
+              Prev
+            </button>
+            <span class="page-info">
+              Page {{ pageFor(group.code) }} / {{ totalPages(group) }}
+            </span>
+            <button
+              type="button"
+              :disabled="pageFor(group.code) === totalPages(group)"
+              @click="setPage(group.code, pageFor(group.code) + 1)"
+            >
+              Next
+            </button>
+          </div>
+        </section>
       </div>
-    </div>
   </div>
 </template>
 
@@ -78,6 +108,16 @@ import { API_BASE } from '../api'
 interface PoolCard {
   reference: string
   name?: string
+  mainFaction?: {
+    code?: string
+    name?: string
+  }
+}
+
+interface FactionGroup {
+  code: string
+  name: string
+  cards: PoolCard[]
 }
 
 interface EffectWarning {
@@ -105,8 +145,9 @@ const onlyWarnings = ref(true)
 const selectedRule = ref<WarningRule | null>(null)
 const rules = ref<WarningRule[]>([])
 const warningsByRef = ref<Record<string, EffectWarning[]>>({})
-const currentPage = ref(1)
+const factionPages = ref<Record<string, number>>({})
 const itemsPerPage = 20
+const FACTION_ORDER = ['AX', 'BR', 'LY', 'MU', 'OR', 'YZ']
 
 const TYPE_LABELS: Record<string, string> = {
   CARD_NAME: 'Card names',
@@ -152,12 +193,43 @@ const visibleCards = computed<PoolCard[]>(() => {
   })
 })
 
-const totalPages = computed(() => Math.ceil(visibleCards.value.length / itemsPerPage) || 1)
+const factionRank = (code: string) => {
+  const index = FACTION_ORDER.indexOf(code)
+  return index === -1 ? FACTION_ORDER.length : index
+}
 
-const paginatedCards = computed(() => {
-  const start = (currentPage.value - 1) * itemsPerPage
-  return visibleCards.value.slice(start, start + itemsPerPage)
+const factionGroups = computed<FactionGroup[]>(() => {
+  const groups = new Map<string, FactionGroup>()
+  visibleCards.value.forEach((card) => {
+    const code = card.mainFaction?.code ?? 'UNKNOWN'
+    const name = card.mainFaction?.name ?? 'Unknown faction'
+    let group = groups.get(code)
+    if (!group) {
+      group = { code, name, cards: [] }
+      groups.set(code, group)
+    }
+    group.cards.push(card)
+  })
+  return Array.from(groups.values()).sort((a, b) => factionRank(a.code) - factionRank(b.code))
 })
+
+const groupWarningCount = (group: FactionGroup) =>
+  group.cards.reduce((sum, card) => sum + cardWarnings(card.reference).length, 0)
+
+const pageFor = (code: string) => factionPages.value[code] ?? 1
+
+const totalPages = (group: FactionGroup) =>
+  Math.ceil(group.cards.length / itemsPerPage) || 1
+
+const paginatedCards = (group: FactionGroup) => {
+  const page = Math.min(pageFor(group.code), totalPages(group))
+  const start = (page - 1) * itemsPerPage
+  return group.cards.slice(start, start + itemsPerPage)
+}
+
+const setPage = (code: string, page: number) => {
+  factionPages.value = { ...factionPages.value, [code]: page }
+}
 
 const fetchRules = async () => {
   try {
@@ -191,18 +263,14 @@ const analyze = async () => {
 watch(
   () => props.pool,
   () => {
-    currentPage.value = 1
+    factionPages.value = {}
     analyze()
   },
   { deep: true }
 )
 
-watch(onlyWarnings, () => {
-  currentPage.value = 1
-})
-
-watch(selectedRule, () => {
-  currentPage.value = 1
+watch([onlyWarnings, selectedRule], () => {
+  factionPages.value = {}
 })
 
 fetchRules()
@@ -251,6 +319,41 @@ analyze()
 
 .analytics-body {
   flex: 1;
+}
+
+.faction-section {
+  margin-bottom: 2rem;
+}
+
+.faction-section:last-child {
+  margin-bottom: 0;
+}
+
+.faction-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+.faction-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #ffffff;
+}
+
+.faction-count {
+  font-size: 0.85rem;
+  color: #888888;
+}
+
+.faction-warnings {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #ff8a8a;
 }
 
 .rule-filter-row {

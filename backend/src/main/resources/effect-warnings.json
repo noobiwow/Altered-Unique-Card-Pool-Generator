@@ -21,6 +21,14 @@
     {
       "line": "You may return a card other than me from your Reserve to your hand.",
       "ignoreEcho": true
+    },
+    {
+      "line": "When a card leaves your Reserve during the Afternoon",
+      "ignoreEcho": true
+    },
+    {
+      "line": "When a card goes from your deck or hand to Reserve",
+      "ignoreEcho": true
     }
   ]
 }

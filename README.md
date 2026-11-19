@@ -5,12 +5,12 @@ A web application for generating randomized card pools from the Altered TCG. Bui
 ## Features
 
 - **Generate Card Pools**: Create randomized card pools with customizable filters
+- **Balanced Faction Pools**: Every generation creates one pool per faction and combines them into a single global pool (JSON/Excel export unchanged)
 - **Filter Options**:
-  - Faction (Ordis, Bravos, Yzmir, Muna, Axiom, Lyra)
   - Card Set
   - Sub Type / Card Type
   - Exclude Banned or Suspended cards
-  - Cost range (min/max)
+  - Hand Cost and Reserve Cost (for example `4+` for 4 or more, `2-` for 2 or less)
   - Text search (name, reference, effect)
 - **Multi-language Support**: Available in German, English, Spanish, French, and Italian
 - **Export**: Download generated pools as Excel files
@@ -83,7 +83,7 @@ The frontend will start on `http://localhost:5173` (default Vite port)
 
 1. Start both backend and frontend
 2. Open the frontend in your browser
-3. Fill in the desired filters (faction, set, card type, etc.)
-4. Select the number of cards and locale
-5. Click "Generate" to create a pool
-6. Use "Visualize" to view cards or "Export" to download as Excel
+3. Fill in the desired filters (set, card type, etc.)
+4. Select the number of cards per faction and locale
+5. Click "Generate" to create the combined pool
+6. Use "Visualize" to view cards, "Analyze Effects" for the per-faction breakdown, or "Export" to download as Excel

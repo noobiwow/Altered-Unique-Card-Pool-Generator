@@ -109,7 +109,20 @@ public class Card {
 
     @JsonIgnore
     public int getMainCost() {
-        String val = getElementValue("MAIN_COST");
+        return getCost("MAIN_COST");
+    }
+
+    /**
+     * Reserve cost is exposed by the Altered API as "recallCost" and is stored
+     * in the elements map under RECALL_COST.
+     */
+    @JsonIgnore
+    public int getRecallCost() {
+        return getCost("RECALL_COST");
+    }
+
+    private int getCost(String elementKey) {
+        String val = getElementValue(elementKey);
         if (val == null)
             return -1;
         try {

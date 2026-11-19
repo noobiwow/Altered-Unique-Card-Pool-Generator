@@ -21,10 +21,12 @@ public class CardFilter {
                 builder.faction,
                 builder.rarity,
                 builder.set,
-                builder.subType,
+                builder.subTypes,
                 builder.cardType,
                 builder.minCost,
                 builder.maxCost,
+                builder.minReserveCost,
+                builder.maxReserveCost,
                 builder.excludeBanned,
                 builder.excludeSuspended,
                 builder.setWeights,
@@ -48,7 +50,8 @@ public class CardFilter {
             return false;
         if (cr.set() != null && !cr.set().equalsIgnoreCase(c.getCardSet().getReference()))
             return false;
-        if (cr.subType() != null && !c.hasSubType(cr.subType()))
+        if (cr.subTypes() != null && !cr.subTypes().isEmpty()
+                && cr.subTypes().stream().noneMatch(c::hasSubType))
             return false;
         if (cr.cardType() != null && !cr.cardType().equalsIgnoreCase(c.getCardTypeName()))
             return false;
@@ -59,6 +62,11 @@ public class CardFilter {
         if (cr.minCost() != null && c.getMainCost() < cr.minCost())
             return false;
         if (cr.maxCost() != null && (c.getMainCost() < 0 || c.getMainCost() > cr.maxCost()))
+            return false;
+        if (cr.minReserveCost() != null && c.getRecallCost() < cr.minReserveCost())
+            return false;
+        if (cr.maxReserveCost() != null
+                && (c.getRecallCost() < 0 || c.getRecallCost() > cr.maxReserveCost()))
             return false;
         for (Predicate<Card> p : cr.customPredicates())
             if (!p.test(c))
@@ -78,10 +86,12 @@ public class CardFilter {
             String faction,
             String rarity,
             String set,
-            String subType,
+            List<String> subTypes,
             String cardType,
             Integer minCost,
             Integer maxCost,
+            Integer minReserveCost,
+            Integer maxReserveCost,
             boolean excludeBanned,
             boolean excludeSuspended,
             Map<String, Double> setWeights,
@@ -93,8 +103,9 @@ public class CardFilter {
     // -------------------------------------------------------------------------
 
     public static class Builder {
-        private String faction, rarity, set, subType, cardType;
-        private Integer minCost, maxCost;
+        private String faction, rarity, set, cardType;
+        private List<String> subTypes;
+        private Integer minCost, maxCost, minReserveCost, maxReserveCost;
         private boolean excludeBanned, excludeSuspended;
         private Map<String, Double> setWeights;
         private final List<Predicate<Card>> customs = new ArrayList<>();
@@ -123,9 +134,12 @@ public class CardFilter {
             return this;
         }
 
-        public Builder subType(String v) {
-            if (notBlank(v))
-                subType = v;
+        public Builder subTypes(List<String> v) {
+            if (v != null) {
+                List<String> nonBlank = v.stream().filter(Builder::notBlank).toList();
+                if (!nonBlank.isEmpty())
+                    subTypes = nonBlank;
+            }
             return this;
         }
 
@@ -142,6 +156,22 @@ public class CardFilter {
 
         public Builder maxMainCost(int v) {
             maxCost = v;
+            return this;
+        }
+
+        public Builder handCost(CostConstraint constraint) {
+            if (constraint != null) {
+                minCost = constraint.min();
+                maxCost = constraint.max();
+            }
+            return this;
+        }
+
+        public Builder reserveCost(CostConstraint constraint) {
+            if (constraint != null) {
+                minReserveCost = constraint.min();
+                maxReserveCost = constraint.max();
+            }
             return this;
         }
 

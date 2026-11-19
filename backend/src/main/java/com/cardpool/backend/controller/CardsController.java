@@ -1,6 +1,7 @@
 package com.cardpool.backend.controller;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 
 import org.springframework.http.HttpHeaders;
@@ -16,6 +17,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.cardpool.backend.dto.CardWarning;
 import com.cardpool.backend.dto.WarningRule;
+import com.cardpool.backend.enums.FactionEnum;
 import com.cardpool.backend.model.Card;
 
 import lombok.extern.slf4j.Slf4j;
@@ -57,9 +59,14 @@ public class CardsController {
             @RequestParam("size") String poolSize,
             @RequestParam("locale") String locale,
             @RequestBody FilterForm filterForm) {
-        CardFilter cardFilter = poolService.buildFilter(filterForm);
-        return repo.drawFilteredV3(
+        // Generate one pool per faction, then combine them into the global pool.
+        CardFilter cardFilter = poolService.buildFilter(filterForm, null);
+        List<String> factionCodes = Arrays.stream(FactionEnum.values())
+                .map(FactionEnum::getCode)
+                .toList();
+        return repo.drawFilteredPerFactionV3(
                 cardFilter,
+                factionCodes,
                 Integer.parseInt(poolSize),
                 locale);
     }

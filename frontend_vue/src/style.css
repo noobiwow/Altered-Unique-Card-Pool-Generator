@@ -325,9 +325,16 @@ button {
   color: #666666;
 }
 
-.weight-error {
+.weight-error,
+.field-error {
   margin-top: 0.5rem;
   font-size: 0.8rem;
   color: #ff6b6b;
   font-weight: 500;
+}
+
+.field-hint {
+  margin-top: 0.4rem;
+  font-size: 0.8rem;
+  color: #777777;
 }

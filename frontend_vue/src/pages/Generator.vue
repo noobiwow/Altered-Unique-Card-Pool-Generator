@@ -10,15 +10,6 @@
 
       <form v-if="!loading" @submit.prevent="onGenerate">
         <div class="form-group">
-          <label for="faction">Faction</label>
-            <select v-model="form.faction">
-              <option v-for="faction in factions" :value="faction.code">
-                {{ faction.name }}
-              </option>
-            </select>
-        </div>
-
-        <div class="form-group">
           <label for="set">Set</label>
           <select v-model="form.set">
             <option v-for="set in sets" :value="set.reference">
@@ -28,12 +19,13 @@
         </div>
 
         <div class="form-group">
-          <label for="subType">Sub Type</label>
-          <select v-model="form.subType">
-            <option v-for="subtype in subtypes" :value="subtype.name">
-              {{ subtype.name }}
-            </option>
-          </select>
+          <label for="subType">Sub Types</label>
+          <MultiSelect
+            input-id="subType"
+            v-model="form.subTypes"
+            :options="subtypeNames"
+            placeholder="Search sub types..."
+          />
         </div>
 
         <div class="form-group checkbox-group">
@@ -48,15 +40,18 @@
 
         <div class="form-row">
           <div class="form-group">
-            <label for="minCost">Min Cost</label>
-            <input id="minCost" type="number" v-model="form.minCost" />
+            <label for="handCost">Hand Cost</label>
+            <input id="handCost" type="text" v-model="form.handCost" placeholder="e.g. 4+ or 2-" />
           </div>
 
           <div class="form-group">
-            <label for="maxCost">Max Cost</label>
-            <input id="maxCost" type="number" v-model="form.maxCost" />
+            <label for="reserveCost">Reserve Cost</label>
+            <input id="reserveCost" type="text" v-model="form.reserveCost" placeholder="e.g. 4+ or 2-" />
           </div>
         </div>
+        <p v-if="!costsValid" class="field-error">
+          Use a number with an optional + or - (for example 4+ or 2-).
+        </p>
 
         <div class="form-group">
           <label for="fieldSearch">Field Search</label>
@@ -64,8 +59,11 @@
         </div>
 
         <div class="form-group">
-          <label for="numberOfCards">Number of Cards</label>
+          <label for="numberOfCards">Number of Cards per Faction</label>
           <input id="numberOfCards" type="number" v-model="form.numberOfCards" />
+          <p v-if="factionCount" class="field-hint">
+            {{ totalCards }} cards total across {{ factionCount }} factions
+          </p>
         </div>
 
         <label for="language">Language:</label>
@@ -75,7 +73,12 @@
           </option>
         </select>
 
-        <div class="form-group">
+        <div class="form-group checkbox-group">
+          <input id="useSetWeights" type="checkbox" v-model="form.useSetWeights" />
+          <label for="useSetWeights">Use Set Weights</label>
+        </div>
+
+        <div v-if="form.useSetWeights" class="form-group">
           <label>Set Weights</label>
           <div v-for="set in sets" :key="set.reference" class="weight-row">
             <label :for="'weight-' + set.reference" class="weight-label">{{ set.name }}</label>
@@ -104,7 +107,7 @@
         </div>
 
         <div class="button-group">
-          <button type="submit" class="btn-generate" :disabled="weightTotal !== 1">Generate</button>
+          <button type="submit" class="btn-generate" :disabled="!weightsValid || !costsValid">Generate</button>
         </div>
       </form>
     </div>
@@ -117,6 +120,7 @@ import { useRouter } from 'vue-router'
 import axios from 'axios'
 import { setPool } from '../pool-store'
 import { API_BASE } from '../api'
+import MultiSelect from '../components/MultiSelect.vue'
 
 const router = useRouter()
 const POOL_STORAGE_KEY = 'cardpool_generated_pool'
@@ -124,11 +128,6 @@ const title = 'Card Pool Generator'
 const loading = ref(false)
 const listOfLocale = ['de','en','es','fr','it']
 
-interface Faction {
-  code: string;
-  name: string;
-}
-const factions = ref<Faction[]>([]);
 interface Set {
   reference: string;
   name: string;
@@ -138,16 +137,24 @@ interface Subtype {
   name: string;
 }
 const subtypes = ref<Subtype[]>([]);
+const subtypeNames = computed(() => subtypes.value.map((subtype) => subtype.name));
+interface Faction {
+  code: string;
+  name: string;
+}
 interface MetaResponse {
   factions: Faction[];
   sets: Set[];
   subtypes: Subtype[];
 }
 
+// Pools are generated for every faction returned by the backend.
+const factionCount = ref(0)
+
 onMounted(async () => {
   const res = await fetch(`${API_BASE}/api/form/formValues`);
   const data: MetaResponse = await res.json();
-  factions.value = data.factions;
+  factionCount.value = data.factions.length;
   sets.value = data.sets;
   subtypes.value = data.subtypes;
   const defaultWeights: Record<string, number> = {
@@ -165,22 +172,32 @@ onMounted(async () => {
 });
 
 const form = reactive({
-  faction: '',
   set: '',
-  subType: '',
+  subTypes: [] as string[],
   type: '',
   checkExcludeBanned: false,
   checkExcludeSuspended: false,
-  minCost: null as number | null,
-  maxCost: null as number | null,
+  handCost: '',
+  reserveCost: '',
   fieldSearch: '',
   numberOfCards: 10,
   selectedLocale: '',
+  useSetWeights: true,
   setWeights: {} as Record<string, number>,
 })
 
+const totalCards = computed(() => (form.numberOfCards || 0) * factionCount.value)
+
 const weightTotal = computed(() =>
   Object.values(form.setWeights).reduce((sum, v) => sum + v, 0)
+)
+
+const weightsValid = computed(() => !form.useSetWeights || weightTotal.value === 1)
+const costExpression = /^\s*\d+\s*[+-]?\s*$/
+const costsValid = computed(() =>
+  [form.handCost, form.reserveCost].every(
+    (value) => value.trim() === '' || costExpression.test(value)
+  )
 )
 
 const onGenerate = () => {
@@ -188,6 +205,10 @@ const onGenerate = () => {
   const locale = form.selectedLocale || "en"
   const size = form.numberOfCards || 10
   const payload = JSON.parse(JSON.stringify(form))
+  if (!form.useSetWeights) {
+    delete payload.setWeights
+  }
+  delete payload.useSetWeights
   axios
     .post<any[]>(`${API_BASE}/api/pool/generate?size=${size}&locale=${locale}`, payload)
     .then((response) => {
