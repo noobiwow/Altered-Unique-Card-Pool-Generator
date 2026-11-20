@@ -1,132 +1,54 @@
 <template>
   <div>
-    <!-- Grid -->
-    <div class="visualizer-grid">
-      <div v-for="ref in paginatedRefs" :key="ref" class="visualizer-card">
-        <AlteredCard :card-ref="ref"/>
-      </div>
+    <div class="grid">
+      <article v-for="card in pageItems" :key="card.reference" class="card">
+        <header>
+          <p class="name">{{ card.name || card.reference }}</p>
+          <p class="facts">
+            <span>{{ card.mainFaction?.name ?? factionName(card.mainFaction?.code) }}</span>
+            <span v-if="card.cardType?.name?.en">{{ card.cardType.name.en }}</span>
+          </p>
+          <CardStats :card="card" />
+          <p class="ref">{{ card.reference }}</p>
+        </header>
+        <CardText :card="card" />
+      </article>
     </div>
-
-    <!-- Pagination Controls -->
-    <div class="pagination">
-      <button
-        @click="goToPreviousPage"
-        :disabled="currentPage === 1"
-      >
-        Prev
-      </button>
-
-      <span class="page-info">
-        Page {{ currentPage }} / {{ totalPages }}
-      </span>
-
-      <button
-        @click="goToNextPage"
-        :disabled="currentPage === totalPages"
-      >
-        Next
-      </button>
-    </div>
+    <Pagination v-model="page" :pages="pages" />
   </div>
 </template>
 
-<script>
-import { AlteredCard } from 'altered-tcg';
+<script setup lang="ts">
+import { toRef } from 'vue'
+import Pagination from './Pagination.vue'
+import CardStats from './analysis/CardStats.vue'
+import CardText from './analysis/CardText.vue'
+import { usePagination } from '../composables/usePagination'
+import { factionName, type PoolCard } from '../analysis'
 
-export default {
-  name: "VisualizerGrid",
-
-  components: {
-    AlteredCard
-  },
-
-  props: {
-    refs: {
-      type: Array,
-      required: true
-    }
-  },
-
-  data() {
-    return {
-      currentPage: 1,
-      itemsPerPage: 20
-    };
-  },
-
-  computed: {
-    paginatedRefs() {
-      const start = (this.currentPage - 1) * this.itemsPerPage;
-      const end = start + this.itemsPerPage;
-      return this.refs.slice(start, end);
-    },
-
-    totalPages() {
-      return Math.ceil(this.refs.length / this.itemsPerPage) || 1;
-    }
-  },
-
-  methods: {
-    goToNextPage() {
-      if (this.currentPage < this.totalPages) {
-        this.currentPage++;
-      }
-    },
-
-    goToPreviousPage() {
-      if (this.currentPage > 1) {
-        this.currentPage--;
-      }
-    }
-  },
-
-  watch: {
-    refs: {
-      handler() {
-        // Reset pagination if dataset changes
-        this.currentPage = 1;
-      },
-      deep: true
-    }
-  }
-};
+const props = defineProps<{ cards: PoolCard[] }>()
+const { page, pages, pageItems } = usePagination(toRef(props, 'cards'), 30)
 </script>
 
 <style scoped>
-
-.visualizer-grid {
+.grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
   padding: 3rem 16px 16px;
-  box-sizing: border-box;
 }
 
-.visualizer-card {
-  width: 100%;
-  max-width: 100%;
-}
-
-.visualizer-card > * > * {
-  border-radius: 8px;
-}
-
-.pagination {
-  margin-top: 20px;
+.card {
   display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.7rem;
+  border: 1px solid #262626;
+  border-radius: 8px;
+  background: var(--surface-sunken);
 }
 
-button:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-.page-info {
-  font-weight: 600;
-  color: #cccccc;
-}
+.name { font-size: 0.95rem; font-weight: 600; color: #eee; }
+.facts { display: flex; flex-wrap: wrap; gap: 0.5rem; font-size: 0.72rem; color: #999; }
+.ref { font-family: monospace; font-size: 0.65rem; color: var(--text-dim); overflow-wrap: anywhere; }
 </style>
-

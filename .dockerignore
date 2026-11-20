@@ -1,10 +1,18 @@
+# Only the sources needed by the Dockerfile are sent to the build.
+# Large data folders are mounted as volumes at runtime instead (see docker-compose.yml).
+backend/data
+backend/cardsdata
+
 **/node_modules
 **/target
+**/dist
 **/.git
 **/.idea
 **/.vscode
-**/dist
+**/.settings
+**/.classpath
+**/.project
+**/.factorypath
 **/.DS_Store
 **/*.md
-frontend_vue/node_modules
-backend/target
+**/*.tsbuildinfo

@@ -1,0 +1,4 @@
+Id,Reference,CardFamilyId,SetReference,FactionReference,ArtistId,InstanceNumber,CollectorNumberFormatted,SerializedNumber,IsPublic,IsSuspended,IsErrated,IsBanned,IsExclusive,IsOwnerless,IsSerialized,FOREST_POWER,MAIN_COST,MOUNTAIN_POWER,OCEAN_POWER,RECALL_COST
+1,ALT_EOLE_B_MU_107_U_1,1,EOLE,MU,3,1,X,,1,0,0,0,0,0,0,1,2,3,4,1
+2,ALT_EOLE_B_MU_107_U_2,1,EOLE,AX,3,2,X,,1,0,0,1,0,0,0,2,5,2,2,4
+3,ALT_EOLE_B_AX_120_U_3,2,EOLE,AX,3,3,X,,1,1,0,0,0,0,0,,3,,,3

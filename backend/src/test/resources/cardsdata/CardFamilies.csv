@@ -1,0 +1,4 @@
+Id,CardTypeReference,Name_en_US,Name_fr_FR,Name_es_ES,Name_de_DE,Name_it_IT,FlavorText_en_US,FlavorText_fr_FR,FlavorText_es_ES,FlavorText_de_DE,FlavorText_it_IT
+1,CHARACTER,Brave Cub,Ourson,Osezno,Bär,Orso,"A quote, with a comma
+and a newline",,,,,
+2,SPELL,Big Sabotage,Gros,Gran,Groß,Grande,,,,,

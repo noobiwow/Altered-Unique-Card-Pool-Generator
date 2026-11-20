@@ -193,15 +193,15 @@ onBeforeUnmount(() => {
   width: 100%;
   min-height: 2.65rem;
   padding: 0.4rem 0.75rem;
-  border: 1px solid #2a2a2a;
+  border: 1px solid var(--border);
   border-radius: 6px;
-  background-color: #161616;
+  background-color: var(--surface-sunken);
   cursor: text;
   transition: border-color 0.2s;
 }
 
 .multi-select-control.is-open {
-  border-color: #00d4ff;
+  border-color: var(--accent);
 }
 
 .multi-select-chip {
@@ -209,10 +209,10 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 0.25rem;
   padding: 0.15rem 0.4rem;
-  border: 1px solid #3a3a3a;
+  border: 1px solid var(--border-strong);
   border-radius: 4px;
-  background-color: #2a2a2a;
-  color: #e0e0e0;
+  background-color: var(--control);
+  color: var(--text);
   font-size: 0.8rem;
   line-height: 1.4;
 }
@@ -228,7 +228,7 @@ onBeforeUnmount(() => {
 }
 
 .multi-select-chip-remove:hover {
-  color: #00d4ff;
+  color: var(--accent);
 }
 
 .multi-select-input {
@@ -239,7 +239,7 @@ onBeforeUnmount(() => {
   border: none;
   outline: none;
   background: transparent;
-  color: #e0e0e0;
+  color: var(--text);
   font-size: 0.95rem;
 }
 
@@ -248,7 +248,7 @@ onBeforeUnmount(() => {
 }
 
 .multi-select-input::placeholder {
-  color: #666666;
+  color: var(--text-dim);
 }
 
 .multi-select-options {
@@ -262,9 +262,9 @@ onBeforeUnmount(() => {
   padding: 0.3rem;
   list-style: none;
   overflow-y: auto;
-  border: 1px solid #2a2a2a;
+  border: 1px solid var(--border);
   border-radius: 6px;
-  background-color: #1e1e1e;
+  background-color: var(--surface);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
 }
 
@@ -281,17 +281,17 @@ onBeforeUnmount(() => {
 }
 
 .multi-select-option.is-highlighted {
-  background-color: #2a2a2a;
+  background-color: var(--control);
   color: #ffffff;
 }
 
 .multi-select-option.is-selected {
-  color: #00d4ff;
+  color: var(--accent);
 }
 
 .multi-select-check {
   width: 1rem;
-  color: #00d4ff;
+  color: var(--accent);
   text-align: center;
 }
 

@@ -1,74 +1,46 @@
 package com.cardpool.backend.service;
 
-import org.springframework.http.HttpStatus;
+import java.util.Set;
+
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 
 import com.cardpool.backend.model.CardFilter;
 import com.cardpool.backend.model.CostConstraint;
 import com.cardpool.backend.model.form.FilterForm;
 
+/** Turns the generator form into a {@link CardFilter}. */
 @Service
 public class PoolService {
 
-    public CardFilter buildFilter(FilterForm filterForm) {
-        return buildFilter(filterForm, filterForm.getFaction());
-    }
-
     /**
-     * Builds a filter, optionally restricting it to a single faction. Passing
-     * {@code null} builds the global filter used to generate every faction pool.
+     * Builds the filter of a generator form.
+     *
+     * @param form               the form
+     * @param faction            restrict to one faction, or null for every faction
+     * @param excludedReferences references never to return (rejected cards, cards already in the pool...)
+     * @throws IllegalArgumentException for an invalid cost expression
      */
-    public CardFilter buildFilter(FilterForm filterForm, String faction) {
-        CardFilter.Builder builder = CardFilter.builder();
-
-        if (faction != null)
-            builder.faction(faction);
-        if (filterForm.getSet() != null)
-            builder.set(filterForm.getSet());
-        if (filterForm.getSubTypes() != null)
-            builder.subTypes(filterForm.getSubTypes());
-        if (filterForm.getType() != null)
-            builder.cardType(filterForm.getType());
-        if (filterForm.isCheckExcludeBanned())
-            builder.excludeBanned();
-        if (filterForm.isCheckExcludeSuspended())
-            builder.excludeSuspended();
-        CostConstraint handCost = parseCost("handCost", filterForm.getHandCost());
-        if (handCost != null) {
-            builder.handCost(handCost);
-        } else {
-            // Legacy min/max hand-cost fields.
-            if (filterForm.getMinCost() != null)
-                builder.minMainCost(filterForm.getMinCost());
-            if (filterForm.getMaxCost() != null)
-                builder.maxMainCost(filterForm.getMaxCost());
-        }
-        builder.reserveCost(parseCost("reserveCost", filterForm.getReserveCost()));
-        if (filterForm.getSetWeights() != null)
-            builder.setWeights(filterForm.getSetWeights());
-
-        if (filterForm.getFieldSearch() != null) {
-            String search = filterForm.getFieldSearch().trim().toLowerCase();
-            if (!search.isEmpty()) {
-                builder.custom(c -> {
-                    // TODO Change way to handle search on name
-                    String name = c.getName() != null ? c.getName().toLowerCase() : "";
-                    String ref = c.getReference() != null ? c.getReference().toLowerCase() : "";
-                    String effect = c.getMainEffect() != null ? c.getMainEffect().toLowerCase() : "";
-                    return name.contains(search) || ref.contains(search) || effect.contains(search);
-                });
-            }
-        }
-
-        return builder.build();
+    public CardFilter buildFilter(FilterForm form, String faction, Set<String> excludedReferences) {
+        return CardFilter.builder()
+                .faction(faction)
+                .set(form.set())
+                .subTypes(form.subTypes())
+                .cardType(form.type())
+                .handCost(parseCost("handCost", form.handCost()))
+                .reserveCost(parseCost("reserveCost", form.reserveCost()))
+                .setWeights(form.setWeights())
+                .textSearch(form.fieldSearch())
+                .excludeReferences(excludedReferences)
+                .excludeBanned(form.checkExcludeBanned())
+                .excludeSuspended(form.checkExcludeSuspended())
+                .build();
     }
 
-    private CostConstraint parseCost(String field, String raw) {
+    private static CostConstraint parseCost(String field, String raw) {
         try {
             return CostConstraint.parse(raw);
         } catch (IllegalArgumentException e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, field + ": " + e.getMessage(), e);
+            throw new IllegalArgumentException(field + ": " + e.getMessage(), e);
         }
     }
 }

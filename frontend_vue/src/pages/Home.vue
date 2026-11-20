@@ -3,163 +3,111 @@
     <div class="home-container">
       <h1>{{ title }}</h1>
       <p class="tagline">Generate a pool of Altered TCG cards based on your own criteria.</p>
+      <div v-if="pool" class="last-pool">
+        <span class="last-pool-label">Current pool</span>
+        <span class="last-pool-name">{{ pool.name }}</span>
+        <span class="last-pool-meta">
+          {{ pool.size }} cards
+          <template v-if="pool.replacements">
+            · {{ pool.replacements }} replacement{{ pool.replacements === 1 ? '' : 's' }}
+          </template>
+          <template v-if="generatedAt"> · generated {{ generatedAt }}</template>
+        </span>
+      </div>
+      <p v-if="poolError" class="error-box">{{ poolError }}</p>
       <div class="home-actions">
-        <button type="button" class="btn-generate" @click="goToGenerator">Generate a Pool</button>
-        <button v-if="hasSavedPool" type="button" class="btn-restore" @click="goToPool">Continue working on pool</button>
-      </div>
-    </div>
-
-    <div class="visualize-container">
-      <h2>Visualize a Pool</h2>
-
-      <div v-if="!manifestLoaded" class="loading">
-        <div class="spinner"></div>
-        <p>Loading pools...</p>
-      </div>
-
-      <div v-else class="pool-options">
-        <button
-          type="button"
-          class="pool-option"
-          :disabled="loadingPool || !currentPool"
-          @click="loadPool(currentPool!)"
-        >
-          Current Pool
+        <template v-if="pool">
+          <button type="button" class="btn-generate" @click="goToPool">Back to current pool</button>
+          <button type="button" class="btn-restore" @click="confirmingNewPool = true">Generate a new pool</button>
+        </template>
+        <button v-else type="button" class="btn-generate" :disabled="!poolChecked" @click="goToGenerator">
+          Generate a Pool
         </button>
-        <button
-          type="button"
-          class="pool-option"
-          :disabled="loadingPool || !nextPool"
-          @click="loadPool(nextPool!)"
-        >
-          Next Pool
-        </button>
-
-        <div v-if="previousPools.length" class="previous-picker">
-          <select v-model="selectedPrevious" :disabled="loadingPool">
-            <option value="" disabled>Previous pools...</option>
-            <option v-for="pool in previousPools" :key="pool.key" :value="pool.key">
-              {{ pool.label }}
-            </option>
-          </select>
-          <button
-            type="button"
-            class="pool-option"
-            :disabled="loadingPool || !selectedPrevious"
-            @click="loadPreviousPool(getPreviousPool(selectedPrevious)!)"
-          >
-            Visualize
-          </button>
-        </div>
-      </div>
-
-      <div v-if="loadingPool" class="loading">
-        <div class="spinner"></div>
-        <p>Loading pool...</p>
       </div>
     </div>
 
-    <div v-if="showVisualizer" class="fullscreen-overlay">
-      <button type="button" class="btn-close" @click="closeVisualizer">Close</button>
-      <Visualizer :refs="poolRefs" />
+    <Modal v-if="confirmingNewPool && pool" title="Erase the current pool?" size="small" @close="confirmingNewPool = false">
+      <p class="confirm-text">
+        Generating a new pool erases <strong>{{ pool.name }}</strong> ({{ pool.size }} cards<template
+          v-if="pool.replacements"
+          >, {{ pool.replacements }} replacement{{ pool.replacements === 1 ? '' : 's' }}</template
+        >). Verdicts, rules and reports are kept.
+      </p>
+      <p class="confirm-hint">The current pool stays until the new one is generated.</p>
+      <template #footer>
+        <button type="button" class="btn" @click="confirmingNewPool = false">Cancel</button>
+        <button type="button" class="btn danger" @click="goToGenerator">Erase and generate</button>
+      </template>
+    </Modal>
+
+    <div v-if="reports.length" class="visualize-container reports">
+      <h2>Analysis reports</h2>
+      <ul class="report-list">
+        <li v-for="r in reports" :key="r.id">
+          <router-link :to="{ name: 'report', params: { id: r.id } }" class="report-link">
+            <span class="report-title">{{ r.title }}</span>
+            <span class="report-meta">
+              {{ new Date(r.createdAt).toLocaleDateString() }}
+              <span v-if="r.poolName"> · {{ r.poolName }}</span>
+              · <span class="flagged">{{ r.summary.flagged }} to review</span>
+              <span v-if="r.summary.rejected"> · <span class="rejected">{{ r.summary.rejected }} rejected</span></span>
+            </span>
+          </router-link>
+          <button type="button" class="report-delete" title="Delete report" @click="deleteReport(r)">✕</button>
+        </li>
+      </ul>
     </div>
+
   </main>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import Visualizer from '../components/Visualizer.vue'
-import { setRefsPool } from '../pool-store'
-
-interface PoolEntry {
-  key: string
-  label: string
-  path: string
-}
-
-interface PoolManifest {
-  current?: PoolEntry
-  next?: PoolEntry
-  previous: PoolEntry[]
-}
+import Modal from '../components/Modal.vue'
+import { api, errorMessage, type PoolSummary } from '../api'
+import { currentPoolSummary } from '../pool-store'
+import type { ReportListItem } from '../analysis'
 
 const title = 'Card Pool Generator'
 const router = useRouter()
-const POOL_STORAGE_KEY = 'cardpool_generated_pool'
-const hasSavedPool = ref(false)
 
-const goToGenerator = () => {
-  router.push({ name: 'generator' })
-}
-
-const goToPool = () => {
-  router.push({ name: 'pool' })
-}
-
-onMounted(() => {
-  hasSavedPool.value = !!localStorage.getItem(POOL_STORAGE_KEY)
+const pool = ref<PoolSummary | null>(null)
+const poolChecked = ref(false)
+const poolError = ref('')
+const confirmingNewPool = ref(false)
+const generatedAt = computed(() => {
+  const date = pool.value?.generatedAt
+  return date ? new Date(date).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) : ''
 })
-
-const manifestLoaded = ref(false)
-const currentPool = ref<PoolEntry | undefined>()
-const nextPool = ref<PoolEntry | undefined>()
-const previousPools = ref<PoolEntry[]>([])
+const reports = ref<ReportListItem[]>([])
 
 onMounted(async () => {
-  try {
-    const res = await fetch('/pools/manifest.json')
-    const data: PoolManifest = await res.json()
-    currentPool.value = data.current
-    nextPool.value = data.next
-    previousPools.value = data.previous ?? []
-  } catch (err) {
-    console.error('Error loading pool manifest:', err)
-  } finally {
-    manifestLoaded.value = true
+  const [summary, reportList] = await Promise.allSettled([currentPoolSummary(), api.listReports()])
+  if (summary.status === 'fulfilled') {
+    pool.value = summary.value
+  } else {
+    poolError.value = `Could not check for a current pool: ${errorMessage(summary.reason)}`
+  }
+  poolChecked.value = true
+  if (reportList.status === 'fulfilled') {
+    reports.value = reportList.value
+  } else {
+    console.error('Error loading reports:', reportList.reason)
   }
 })
 
-const selectedPrevious = ref('')
-const loadingPool = ref(false)
-const showVisualizer = ref(false)
-const poolRefs = ref<string[]>([])
+const goToGenerator = () => router.push({ name: 'generator' })
+const goToPool = () => router.push({ name: 'pool' })
 
-const getPreviousPool = (key: string): PoolEntry | undefined =>
-  previousPools.value.find((p) => p.key === key)
-
-const loadPool = async (pool: PoolEntry) => {
-  loadingPool.value = true
+const deleteReport = async (report: ReportListItem) => {
+  if (!confirm(`Delete the report “${report.title}”? Its link will stop working.`)) return
   try {
-    const res = await fetch(`/pools/${pool.path}`)
-    const data = await res.json()
-    const refs: string[] = data.included_refs ?? []
-    setRefsPool(refs)
-    router.push({ name: 'pool' })
+    await api.deleteReport(report.id)
+    reports.value = reports.value.filter((r) => r.id !== report.id)
   } catch (err) {
-    console.error('Error loading pool:', err)
-  } finally {
-    loadingPool.value = false
+    console.error('Error deleting report:', err)
   }
-}
-
-const loadPreviousPool = async (pool: PoolEntry) => {
-  loadingPool.value = true
-  try {
-    const res = await fetch(`/pools/${pool.path}`)
-    const data = await res.json()
-    poolRefs.value = data.included_refs ?? []
-    showVisualizer.value = true
-  } catch (err) {
-    console.error('Error loading pool:', err)
-  } finally {
-    loadingPool.value = false
-  }
-}
-
-const closeVisualizer = () => {
-  showVisualizer.value = false
-  poolRefs.value = []
 }
 </script>
 
@@ -170,18 +118,46 @@ const closeVisualizer = () => {
 }
 
 .home-container {
-  background: #1e1e1e;
+  background: var(--surface);
   padding: 3rem 2rem;
   border-radius: 12px;
-  border: 1px solid #2a2a2a;
+  border: 1px solid var(--border);
   text-align: center;
   width: 100%;
   max-width: 500px;
 }
 
+.last-pool {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  background: var(--control);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 0.8rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.last-pool-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+}
+
+.last-pool-name {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.last-pool-meta {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
 .tagline {
   margin-bottom: 2rem;
-  color: #888888;
+  color: var(--text-muted);
 }
 
 .home-actions {
@@ -191,32 +167,32 @@ const closeVisualizer = () => {
 }
 
 .btn-generate {
-  background-color: #00d4ff;
+  background-color: var(--accent);
   color: #0a0a0a;
   padding: 0.75rem 1.5rem;
   font-weight: 600;
 }
 
 .btn-generate:hover {
-  background-color: #00b8e6;
+  background-color: var(--accent-hover);
 }
 
 .btn-restore {
-  background-color: #2a2a2a;
+  background-color: var(--control);
   color: #cccccc;
   padding: 0.75rem 1.5rem;
-  border: 1px solid #3a3a3a;
+  border: 1px solid var(--border-strong);
 }
 
 .btn-restore:hover {
-  background-color: #333333;
+  background-color: var(--control-hover);
 }
 
 .visualize-container {
-  background: #1e1e1e;
+  background: var(--surface);
   padding: 2rem;
   border-radius: 12px;
-  border: 1px solid #2a2a2a;
+  border: 1px solid var(--border);
   width: 100%;
   max-width: 500px;
 }
@@ -228,30 +204,76 @@ const closeVisualizer = () => {
   color: #ffffff;
 }
 
-.pool-options {
+
+
+
+
+
+.confirm-text {
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.confirm-hint {
+  margin-top: 0.6rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.home-container .error-box {
+  margin-bottom: 1rem;
+}
+
+.report-list {
+  list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-}
-
-.pool-option {
-  background-color: #2a2a2a;
-  color: #cccccc;
-  width: 100%;
-  border: 1px solid #3a3a3a;
-}
-
-.pool-option:hover {
-  background-color: #333333;
-}
-
-.pool-option:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-.previous-picker {
-  display: flex;
   gap: 0.5rem;
+}
+
+.report-list li {
+  display: flex;
+  align-items: stretch;
+  gap: 0.4rem;
+}
+
+.report-link {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  text-decoration: none;
+  background: var(--control);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  padding: 0.6rem 0.8rem;
+}
+
+.report-link:hover {
+  background: var(--control-hover);
+}
+
+.report-title {
+  color: var(--text);
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+.report-meta {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.report-meta .flagged { color: var(--warning); }
+.report-meta .rejected { color: var(--danger); }
+
+.report-delete {
+  background: none;
+  color: var(--text-dim);
+  padding: 0 0.6rem;
+}
+
+.report-delete:hover {
+  color: var(--danger);
 }
 </style>

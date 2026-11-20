@@ -1,0 +1,10 @@
+IdGd,Type,KeywordReference,Slot,Text_en_US,Text_fr_FR,Text_es_ES,Text_de_DE,Text_it_IT
+1,Trigger,,MAIN_EFFECT,{J},,,,
+2,Trigger,,MAIN_EFFECT,[],,,,
+3,Trigger,,ECHO_EFFECT,{D} :,,,,
+4,Trigger,,MAIN_EFFECT,When I'm played —,,,,
+10,Condition,,,If you control a token:,,,,
+20,Output,,,Draw a card.,,,,
+21,Output,ANCHORED,,"You may target a Character, it gains [ANCHORED].",,,,
+22,Output,SABOTAGE,,#[SABOTAGE].#,,,,
+-5,Output,,,I gain 2 boosts.,,,,

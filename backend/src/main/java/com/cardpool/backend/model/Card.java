@@ -53,6 +53,13 @@ public class Card {
     @JsonProperty("echoEffect")
     private String echoEffect;
 
+    /**
+     * Abilities split into trigger / condition / effect, in display order.
+     * Provided by the CardsData source.
+     */
+    @JsonProperty("abilities")
+    private List<Ability> abilities;
+
     @JsonProperty("imagePath")
     private String imagePath;
 

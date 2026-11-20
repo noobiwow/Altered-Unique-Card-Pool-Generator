@@ -15,10 +15,10 @@
   position: fixed;
   top: 1rem;
   left: 1rem;
-  background: #1e1e1e;
+  background: var(--surface);
   color: #cccccc;
   padding: 0.5rem 1rem;
-  border: 1px solid #2a2a2a;
+  border: 1px solid var(--border);
   border-radius: 6px;
   cursor: pointer;
   z-index: 1100;
@@ -26,7 +26,7 @@
 }
 
 .btn-back:hover {
-  background-color: #2a2a2a;
+  background-color: var(--control);
   color: #ffffff;
 }
 </style>

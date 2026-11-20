@@ -39,7 +39,7 @@ public class CardFilterTest {
         CardFilter cardFilter = builder.build();
 
         // When
-        List<Card> filteredPool = cardFilter.apply(pool);
+        List<Card> filteredPool = pool.stream().filter(cardFilter::test).toList();
 
         // Then
         assertEquals(1, filteredPool.size());
@@ -85,7 +85,7 @@ public class CardFilterTest {
         CardFilter cardFilter = builder.build();
 
         // When
-        List<Card> filteredPool = cardFilter.apply(pool);
+        List<Card> filteredPool = pool.stream().filter(cardFilter::test).toList();
 
         // Then
         assertEquals(1, filteredPool.size());
@@ -108,7 +108,7 @@ public class CardFilterTest {
         CardFilter cardFilter = builder.build();
 
         // When
-        List<Card> filteredPool = cardFilter.apply(pool);
+        List<Card> filteredPool = pool.stream().filter(cardFilter::test).toList();
 
         // Then
         assertEquals(2, filteredPool.size());
@@ -129,7 +129,7 @@ public class CardFilterTest {
         CardFilter cardFilter = builder.build();
 
         // When
-        List<Card> filteredPool = cardFilter.apply(pool);
+        List<Card> filteredPool = pool.stream().filter(cardFilter::test).toList();
 
         // Then
         assertEquals(2, filteredPool.size());
@@ -175,7 +175,7 @@ public class CardFilterTest {
                 .build();
 
         // Then
-        List<Card> filteredPool = cardFilter.apply(pool);
+        List<Card> filteredPool = pool.stream().filter(cardFilter::test).toList();
         assertEquals(1, filteredPool.size());
         assertEquals(expensiveCard, filteredPool.get(0));
     }
@@ -192,7 +192,7 @@ public class CardFilterTest {
                 .build();
 
         // Then
-        List<Card> filteredPool = cardFilter.apply(List.of(cardWithoutCosts, cardWithCosts));
+        List<Card> filteredPool = List.of(cardWithoutCosts, cardWithCosts).stream().filter(cardFilter::test).toList();
         assertEquals(1, filteredPool.size());
         assertEquals(cardWithCosts, filteredPool.get(0));
     }

@@ -7,6 +7,7 @@ import lombok.Getter;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 @Getter
+@lombok.Setter
 public class NamedEntity {
     @JsonProperty("id")
     private String id;

@@ -1,183 +1,142 @@
 <template>
   <main class="main">
     <div class="form-container">
-      <div v-if="!poolLoaded" class="loading">
+      <div v-if="loading" class="loading">
         <div class="spinner"></div>
-        <p>{{ resolving ? 'Resolving pool...' : 'Loading pool...' }}</p>
+        <p>Loading pool...</p>
       </div>
 
+      <p v-else-if="!cards.length" class="error-box">{{ error || 'No pool.' }}</p>
+
       <template v-else>
-        <h1>Generated Pool</h1>
-        <p class="pool-count">{{ generatedPool.length }} cards</p>
+        <h1>{{ context.name }}</h1>
+        <p class="pool-count">
+          {{ cards.length }} cards<span v-if="context.replacements.length">
+            · {{ context.replacements.length }} replacement{{ context.replacements.length === 1 ? '' : 's' }}</span>
+        </p>
+        <p v-if="saveError" class="storage-warning">
+          {{ saveError }} Use “Create pool” to keep a copy before leaving.
+        </p>
+        <p v-if="error" class="error-box">{{ error }}</p>
 
-        <div v-if="analyzing" class="loading">
-          <div class="spinner"></div>
-          <p>Analyzing effects...</p>
-        </div>
-
-        <div v-else class="post-generate-buttons">
-          <button type="button" class="btn-export" @click="onExportCsv">Export CSV</button>
-          <button type="button" class="btn-create" @click="onCreatePool">Create pool</button>
-          <button type="button" class="btn-import" @click="showAnalytics = true">Analyze Effects</button>
-          <button type="button" class="btn-visualize" @click="showVisualizer = true">Visualize</button>
-          <input
-            ref="fileInput"
-            type="file"
-            accept=".xlsx,.xls"
-            @change="onFileSelected"
-            hidden
-          />
+        <div class="post-generate-buttons">
+          <button type="button" class="btn-export" :disabled="exporting" @click="exportExcel">
+            {{ exporting ? 'Exporting…' : 'Export Excel' }}
+          </button>
+          <button type="button" class="btn-create" @click="downloadPoolFile">Create pool</button>
+          <button type="button" class="btn-import" @click="overlay = 'analysis'">Analyze Effects</button>
+          <button type="button" class="btn-visualize" @click="overlay = 'visualizer'">Visualize</button>
         </div>
       </template>
     </div>
 
-    <div v-if="showVisualizer" class="fullscreen-overlay">
-      <button type="button" class="btn-close" @click="showVisualizer = false">Close</button>
-      <Visualizer :refs="generatedRefs" />
-    </div>
-
-    <div v-if="showAnalytics" class="fullscreen-overlay">
-      <button type="button" class="btn-close" @click="showAnalytics = false">Close</button>
-      <Analytics :pool="generatedPool" />
+    <div v-if="overlay" class="fullscreen-overlay">
+      <button type="button" class="btn-close" @click="overlay = null">Close</button>
+      <Visualizer v-if="overlay === 'visualizer'" :cards="cards" />
+      <AnalysisPanel
+        v-else
+        :pool="cards"
+        :pool-name="context.name"
+        :filter="context.filter"
+        :replacements="context.replacements"
+        @replace="replaceCard"
+      />
     </div>
   </main>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
 import Visualizer from '../components/Visualizer.vue'
-import Analytics from '../components/Analytics.vue'
-import { getPool, getRefsPool, clearPool } from '../pool-store'
-import { API_BASE } from '../api'
+import AnalysisPanel from '../components/analysis/AnalysisPanel.vue'
+import { api, errorMessage, saveBlob } from '../api'
+import { loadCurrentPool, saveCurrentPool, saveError, type PoolContext } from '../pool-store'
+import type { PoolCard } from '../analysis'
+
+/** File format of a published pool (see pools/). */
+const POOL_FILE = { id: 'frontier', version: 2 }
 
 const router = useRouter()
-const POOL_STORAGE_KEY = 'cardpool_generated_pool'
-const generatedPool = ref<any[]>([])
-const generatedRefs = ref<string[]>([])
-const poolLoaded = ref(false)
-const resolving = ref(false)
-const analyzing = ref(false)
-const file = ref<File | null>(null)
-const showVisualizer = ref(false)
-const showAnalytics = ref(false)
-const fileInput = ref<HTMLInputElement | null>(null)
+
+const cards = ref<PoolCard[]>([])
+const context = ref<PoolContext>({ name: 'Pool', filter: null, replacements: [] })
+const loading = ref(true)
+const exporting = ref(false)
+const error = ref('')
+const overlay = ref<'analysis' | 'visualizer' | null>(null)
+
+const references = computed(() => cards.value.map((card) => card.reference))
 
 onMounted(async () => {
-  const refsOnly = getRefsPool()
-
-  if (refsOnly) {
-    resolving.value = true
-    try {
-      const res = await axios.post<any[]>(`${API_BASE}/api/pool/resolve`, refsOnly)
-      generatedPool.value = res.data
-      generatedRefs.value = res.data.map((card: any) => card.reference)
-      poolLoaded.value = true
-    } catch (err) {
-      console.error('Error resolving pool refs:', err)
-      router.replace({ name: 'generator' })
-    } finally {
-      resolving.value = false
-      clearPool()
-    }
-    return
+  try {
+    const pool = await loadCurrentPool()
+    if (!pool) return router.replace({ name: 'generator' })
+    cards.value = pool.cards
+    context.value = pool.context
+  } catch (err) {
+    error.value = `Could not load the pool: ${errorMessage(err)}`
+  } finally {
+    loading.value = false
   }
-
-  let data: any[] | null = getPool()
-
-  if (!data) {
-    const saved = localStorage.getItem(POOL_STORAGE_KEY)
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved)
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          data = parsed
-        }
-      } catch {}
-    }
-  }
-
-  if (!data) {
-    router.replace({ name: 'generator' })
-    return
-  }
-
-  generatedPool.value = data
-  generatedRefs.value = data.map((card: any) => card.reference)
-  poolLoaded.value = true
-  clearPool()
 })
 
-const onFileSelected = (event: Event) => {
-  const input = event.target as HTMLInputElement
-  if (input.files && input.files.length > 0) {
-    file.value = input.files[0]
-    onAnalyzeCsv()
+/** Every change is saved right away (see pool-store). */
+const persist = () => saveCurrentPool(cards.value, context.value)
+
+function replaceCard(oldCard: PoolCard, newCard: PoolCard) {
+  const index = cards.value.findIndex((card) => card.reference === oldCard.reference)
+  if (index === -1) return
+  cards.value = cards.value.map((card, i) => (i === index ? newCard : card))
+  context.value = {
+    ...context.value,
+    replacements: [
+      ...context.value.replacements,
+      {
+        fromReference: oldCard.reference,
+        fromName: oldCard.name,
+        toReference: newCard.reference,
+        toName: newCard.name,
+        replacedAt: new Date().toISOString(),
+      },
+    ],
+  }
+  persist()
+}
+
+async function exportExcel() {
+  exporting.value = true
+  error.value = ''
+  try {
+    saveBlob(await api.exportExcel(cards.value), 'cards.xlsx')
+  } catch (err) {
+    error.value = `Export failed: ${errorMessage(err)}`
+  } finally {
+    exporting.value = false
   }
 }
 
-const onExportCsv = () => {
-  axios
-    .post(
-      `${API_BASE}/api/pool/export`,
-      generatedPool.value,
-      { responseType: 'blob' }
-    )
-    .then((response) => {
-      const url = window.URL.createObjectURL(new Blob([response.data]))
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'cards.xlsx'
-      a.click()
-      window.URL.revokeObjectURL(url)
-    })
-    .catch((err) => console.error('Error exporting:', err))
-}
-
-const onCreatePool = () => {
-  const refs = generatedPool.value.map((card: any) => card.reference)
-  const payload = {
-    id: 'frontier',
-    version: 2,
-    included_refs: refs,
-  }
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
-  const url = window.URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'frontier.json'
-  a.click()
-  window.URL.revokeObjectURL(url)
-}
-
-const onAnalyzeCsv = () => {
-  if (!file.value) {
-    console.error('No file selected')
-    return
-  }
-
-  analyzing.value = true
-  const formData = new FormData()
-  formData.append('file', file.value)
-
-  axios
-    .post<string>(`${API_BASE}/api/pool/import/stats`, formData)
-    .then((response) => {
-      console.log('Analysis result:', response.data)
-      analyzing.value = false
-    })
-    .catch((err) => {
-      console.error('Error analyzing:', err)
-      analyzing.value = false
-    })
+function downloadPoolFile() {
+  const payload = { ...POOL_FILE, included_refs: references.value }
+  saveBlob(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }), `${POOL_FILE.id}.json`)
 }
 </script>
 
 <style scoped>
 .pool-count {
   text-align: center;
-  color: #888888;
+  color: var(--text-muted);
   margin-bottom: 1.5rem;
+}
+
+.storage-warning {
+  font-size: 0.8rem;
+  color: var(--warning);
+  text-align: center;
+  margin: -0.8rem 0 1rem;
+}
+
+.error-box {
+  margin-bottom: 1rem;
 }
 </style>

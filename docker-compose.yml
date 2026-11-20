@@ -1,8 +1,12 @@
 services:
   app:
     build: .
-    platform: linux/amd64
     ports:
-      - "80:80"
+      - "80:8080"
     volumes:
-      - ./backend/cache:/app/cache
+      # rules, verdicts, reports and the current pool (kept between runs)
+      - ./backend/data:/app/data
+      # card data (read-only); update with ./update-cardsdata.sh
+      - ./backend/cardsdata:/app/cardsdata:ro
+    # 5.5M cards in memory need ~1 GB of heap; the JVM uses 75% of this limit.
+    mem_limit: 2g
